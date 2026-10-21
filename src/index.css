@@ -6,6 +6,15 @@
 }
 
 html, body, #root { height: 100%; margin: 0; }
+/* ขนาดตัวอักษรหลัก — ทุกขนาดในเกมเป็น rem จึงขยายตามจอ (ต้องมีความสูงพอด้วย ไม่งั้นมือถือแนวนอนจะล้น) */
+html { font-size: clamp(16px, calc(7px + 1.3vmin), 22px); }
+@media (max-height: 480px) { html { font-size: 14px; } }
+/* มือถือ: ใช้ความสูงที่มองเห็นจริง (ไม่รวมแถบที่อยู่เว็บ) + เว้นรอยบาก/ขอบโค้ง */
+#root {
+  height: 100dvh;
+  box-sizing: border-box;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
 body {
   background: #1d1a2b;
   color: #2b2238;
@@ -64,6 +73,10 @@ body {
   .cloud, .bob, .blink, .kenburns, .breathe, .shake, .fx-up, .fx-down { animation: none; }
   .fx-up, .fx-down { display: none; }
 }
+
+/* ซ่อนแถบ scroll ทั้งเกม (ยังเลื่อนด้วยล้อเมาส์/นิ้วได้ตามปกติ) */
+* { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { display: none; width: 0; height: 0; }
 
 button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 

@@ -1,5 +1,5 @@
 import type { Fin, GameState, StatKey, Stats } from './types'
-import { careerById } from './careers'
+import { careerById, SELF_EMPLOYED } from './careers'
 import { bodyMul, byAge, pct, rural, SET_RETURNS } from './realstats'
 
 /**
@@ -184,7 +184,7 @@ export function passYears(s: GameState, from: number, to: number): { state: Game
     for (const sh of SHOCKS) {
       if (age < sh.min || age > sh.max || st.flags.includes('shock_' + sh.id)) continue
       if (sh.when && !sh.when(st)) continue
-      if (['layoff', 'bonus', 'promote'].includes(sh.id) && (has(st, 'fired') || has(st, 'own_boss'))) continue
+      if (['layoff', 'bonus', 'promote'].includes(sh.id) && (has(st, 'fired') || has(st, 'own_boss') || SELF_EMPLOYED.includes(st.career ?? ''))) continue
       const p = sh.p(age, st)
       if (rand(st.seed, `shock_${sh.id}_${age}`) >= p) continue
       const b = netWorth(st)

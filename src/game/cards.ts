@@ -1,4 +1,5 @@
 import { rand } from './finance'
+import { SELF_EMPLOYED } from './careers'
 import type { BgId, CharId, Choice, GameState, Line, Scene } from './types'
 
 /**
@@ -216,7 +217,7 @@ export const CARDS: Scene[] = [
   card('exec', 47, 'office', ['boss', 'me'], { who: 'boss', text: 'ผมจะเกษียณแล้ว อยากให้คุณขึ้นมาแทนผม' }, [
     { text: '👔 รับตำแหน่ง', effects: { social: 1, happy: -1, body: -1 }, flags: ['promoted', 'workaholic'], memory: 'ขึ้นเป็นผู้บริหาร', result: R('ห้องทำงานใหญ่ขึ้น เวลาว่างเล็กลง') },
     { text: '🌿 ขอทำงานเดิม', effects: { happy: 2 }, memory: 'ปฏิเสธตำแหน่งผู้บริหาร', result: R('กลับบ้านทันกินข้าวเย็นทุกวัน') },
-  ], { when: (s) => !!s.career && !['farmer', 'monk', 'rider', 'streamer', 'seller'].includes(s.career) }),
+  ], { when: (s) => !!s.career && !SELF_EMPLOYED.includes(s.career) }),
   card('accident', 49, 'city', ['me'], 'เห็นมอไซค์ล้มกลางสี่แยก คนเริ่มยืนมุงถ่ายคลิป', [
     { text: '🚑 วิ่งไปช่วยโทร 1669', effects: { social: 1, happy: 2 }, flags: ['hero'], memory: 'ช่วยชีวิตคนประสบอุบัติเหตุ', result: R('หมอบอกว่าถ้าช้าอีกห้านาทีคงไม่รอด') },
     { text: '🚶 รีบไปทำงาน', effects: { happy: -1 }, memory: 'เดินผ่านอุบัติเหตุไป', result: R('ทั้งวันคิดแต่ว่าเขาจะเป็นยังไงบ้าง') },

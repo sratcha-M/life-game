@@ -162,6 +162,7 @@ const TH_ERR: Record<string, string> = {
   'auth/network-request-failed': 'เชื่อมต่ออินเทอร์เน็ตไม่ได้',
   'auth/unauthorized-domain': 'เว็บนี้ยังไม่ได้รับอนุญาตใน Firebase (เพิ่มโดเมนใน Authentication › Settings › Authorized domains)',
   'auth/operation-not-allowed': 'ยังไม่ได้เปิดการ login ด้วยอีเมลใน Firebase',
+  'auth/configuration-not-found': 'ยังไม่ได้เปิดใช้ Authentication ใน Firebase (Authentication › Get started › เปิด Email/Password)',
 }
 const thErr = (e: unknown) => { const c = (e as { code?: string })?.code ?? ''; return TH_ERR[c] ?? `เกิดข้อผิดพลาด (${c || 'unknown'})` }
 const need = () => { if (!auth) throw Object.assign(new Error('off'), { code: 'off' }) ; return auth }
@@ -169,7 +170,11 @@ const need = () => { if (!auth) throw Object.assign(new Error('off'), { code: 'o
 export async function signUp(email: string, password: string, name: string) {
   try {
     const { user } = await createUserWithEmailAndPassword(need(), email.trim(), password)
-    if (name.trim()) await updateProfile(user, { displayName: name.trim().slice(0, 20) })
+    if (name.trim()) {
+      await updateProfile(user, { displayName: name.trim().slice(0, 20) })
+      // ตอนสร้างบัญชี users/{uid} ถูกเขียนไปก่อนตั้งชื่อ → อัปเดตชื่อตามไป
+      if (db) await setDoc(doc(db, 'users', user.uid), { name: user.displayName }, { merge: true }).catch(() => {})
+    }
     set({ user })
     return { ok: true as const }
   } catch (e) { return { ok: false as const, error: thErr(e) } }

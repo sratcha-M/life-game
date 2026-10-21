@@ -10,6 +10,7 @@ import { FLAG_SCENES } from './lifeflags'
 import { FEAR_SCENES, KARMA_SCENES, ROAD_SCENES } from './karma'
 import { JOB_SCENES } from './jobs'
 import { CROSS, DAD_PASS, HEIR, JOBLESS, LATER, LOVE2, WEIRD2 } from './later'
+import { SELF_EMPLOYED } from './careers'
 import BASELINE from './statBaseline.json'
 import { withTraitLines } from './personaHooks'
 import { PARENT_AGE, parentGoneAt, pct, qx } from './realstats'
@@ -105,8 +106,8 @@ function rand(seed: number, id: string) {
 
 export const getScene = (id: string) => SCENES.find((s) => s.id === id)!
 
-/** ตกงาน/เป็นนายตัวเอง → ไม่มีเจ้านาย ไม่มีออฟฟิศ */
-const noBoss = (s: GameState) => s.flags.includes('fired') || s.flags.includes('own_boss')
+/** ตกงาน/เป็นนายตัวเอง/อาชีพอิสระ → ไม่มีเจ้านาย ไม่มีออฟฟิศ */
+const noBoss = (s: GameState) => s.flags.includes('fired') || s.flags.includes('own_boss') || SELF_EMPLOYED.includes(s.career ?? '')
 const bossScene = (sc: Scene) => (Array.isArray(sc.cast) && sc.cast.includes('boss')) || sc.bg === 'office' || sc.id.startsWith('f_hr')
 /** ฉากที่มีพ่อ/แม่อยู่ → ไม่เกิดหลังพ่อ/แม่จากไปแล้ว */
 const mentions = (sc: Scene, who: string) => {
@@ -122,7 +123,7 @@ const PARENT_OF: Record<string, ('mom' | 'dad')[]> = Object.fromEntries(
 export function sceneAvailable(sc: Scene, s: GameState) {
   if (sc.when && !sc.when(s)) return false
   for (const w of PARENT_OF[sc.id] ?? []) if (sc.age >= parentGoneAt(s, w)) return false
-  if (noBoss(s) && bossScene(sc) && !sc.id.startsWith('heir_')) return false
+  if (noBoss(s) && bossScene(sc) && !sc.id.startsWith('heir_') && !sc.id.startsWith('job_')) return false
   if (sc.force?.(s)) return true
   if (sc.chance !== undefined) {
     // ชีวิตก่อนเคยเจอแล้ว → โอกาสเกิดลดลง, ยังไม่เคยเจอ → โอกาสเพิ่มขึ้น

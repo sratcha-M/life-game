@@ -8,5 +8,8 @@ import { viteSingleFile } from 'vite-plugin-singlefile'
 export default defineConfig({
   plugins: [react({ jsxImportSource: '@emo' }), tailwindcss(), ...(process.env.SINGLE ? [viteSingleFile()] : [])],
   base: process.env.BASE_PATH || '/',
+  // Tailwind v4 เขียน breakpoint เป็น @media (width>=40rem) ซึ่ง Safari < 16.4 / Chrome < 104 อ่านไม่ออก
+  // → แปลง CSS ให้มือถือรุ่นเก่า/เบราว์เซอร์ในแอป (LINE, Facebook) ใช้ responsive ได้
+  build: { cssTarget: ['chrome87', 'safari14', 'firefox78', 'edge88'] },
   resolve: { alias: { '@emo': fileURLToPath(new URL('./src/emo', import.meta.url)) } },
 })

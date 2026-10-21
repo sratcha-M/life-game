@@ -78,7 +78,7 @@ function Title({ hasSave, onNew, onContinue, onAlbum }: { hasSave: boolean; onNe
       <Background id="title" />
       <div className="absolute inset-0 bg-gradient-to-t from-[#3a2030]/85 via-[#3a2030]/15 to-transparent" />
       <AccountButton />
-      <div className="relative z-10 flex h-full flex-col items-center justify-end px-4 pb-[8vh] text-center">
+      <div className="relative z-10 flex h-full flex-col items-center justify-end px-4 pb-[8dvh] text-center">
         <p className="font-display text-sm tracking-[0.3em] text-white/90 drop-shadow">LIFE · PATH</p>
         <h1 className="font-display text-5xl font-semibold text-white drop-shadow-[0_3px_0_#e0707f] sm:text-7xl">เส้นทางชีวิต</h1>
         <p className="mt-2 max-w-md text-base text-white/90 drop-shadow sm:text-lg">ตั้งแต่แรกเกิดจนถึงวันเกิดปีที่ 70 คุณจะเติบโตเป็นใคร?</p>
@@ -139,7 +139,7 @@ function Setup({ onBack, onStart }: { onBack: () => void; onStart: (g: GameState
       <div className="fixed inset-0 bg-[#2b1d14]/40" />
       <div className="relative z-10 mx-auto flex min-h-full max-w-3xl flex-col items-center justify-center gap-4 px-4 py-6 sm:flex-row sm:gap-10">
         {step === 'who' && (
-          <div className="bob h-[30vh] w-[23vh] shrink-0 sm:h-[60vh] sm:w-[45vh]">
+          <div className="bob h-[30dvh] w-[23dvh] shrink-0 sm:h-[60dvh] sm:w-[45dvh]">
             <Character id="me" playerAge={8} s={preview} bg="home" expr="happy" />
           </div>
         )}
@@ -183,9 +183,9 @@ function Setup({ onBack, onStart }: { onBack: () => void; onStart: (g: GameState
                       {up ? (
                         <div className="flex h-full flex-col items-center justify-center gap-1 rounded-2xl bg-[#fff8f0] p-2">
                           <span className="text-4xl">{c.icon}</span>
-                          {c.special && <span className="rounded-full bg-[#ffd166] px-1.5 text-[9px] font-semibold text-[#6a4a00]">พิเศษ</span>}
+                          {c.special && <span className="rounded-full bg-[#ffd166] px-1.5 text-[.75rem] font-semibold text-[#6a4a00]">พิเศษ</span>}
                           <span className="font-display text-sm leading-tight text-[#3a2433]">{c.name}</span>
-                          <span className="text-[10px] leading-tight text-[#8a6a76]">{c.desc}</span>
+                          <span className="text-[.75rem] leading-tight text-[#8a6a76]">{c.desc}</span>
                         </div>
                       ) : (
                         <div className="flex h-full items-center justify-center rounded-2xl bg-gradient-to-br from-[#7b5cd6] to-[#e0707f] text-4xl text-white/90" style={{ transform: 'rotateY(180deg)' }}>✦</div>
@@ -210,7 +210,7 @@ function Setup({ onBack, onStart }: { onBack: () => void; onStart: (g: GameState
                   <button key={d.id} onClick={() => { setDream(d.id); sfx('tap') }}
                     className={`flex items-center gap-3 rounded-2xl border-2 p-3 text-left transition ${dream === d.id ? 'border-[#e0707f] bg-[#fde8ed]' : 'border-[#f0e4e8] bg-white hover:border-[#f6b5c2]'}`}>
                     <span className="text-3xl">{d.icon}</span>
-                    <span><span className="block font-display text-[#3a2433]">{d.name} {d.special && <span className="rounded-full bg-[#ffd166] px-1.5 align-middle font-body text-[10px] text-[#6a4a00]">พิเศษ</span>}</span><span className="text-xs text-[#8a6a76]">{d.desc}</span></span>
+                    <span><span className="block font-display text-[#3a2433]">{d.name} {d.special && <span className="rounded-full bg-[#ffd166] px-1.5 align-middle font-body text-[.75rem] text-[#6a4a00]">พิเศษ</span>}</span><span className="text-xs text-[#8a6a76]">{d.desc}</span></span>
                   </button>
                 ))}
               </div>
@@ -475,10 +475,10 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
       <div key={scene.bg} className="fadein absolute inset-0"><Background id={scene.bg} /></div>
 
       {/* ตัวละคร */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-[118px] top-16 flex items-end justify-center sm:bottom-0">
+      <div className="pointer-events-none absolute inset-x-0 bottom-[7.375rem] top-16 flex items-end justify-center sm:bottom-0">
         <div className="flex h-full max-w-full items-end justify-center">
           {cast.map((id) => (
-            <div key={`${scene.id}-${id}`} className={`popin ${many ? '-mx-[5vw] sm:-mx-6' : '-mx-[2vw] sm:mx-0'} h-[82%] max-h-[640px] transition-transform duration-300 ${speaker === id ? 'z-10 -translate-y-2' : ''}`}
+            <div key={`${scene.id}-${id}`} className={`popin ${many ? '-mx-[5vw] sm:-mx-6' : '-mx-[2vw] sm:mx-0'} h-[82%] max-h-[40rem] transition-transform duration-300 ${speaker === id ? 'z-10 -translate-y-2' : ''}`}
               style={{ width: `min(${Math.floor(128 / Math.max(cast.length, 2))}vw, 52vh, 480px)` }}>
               <div key={speaker === id ? `${idx}-${phase}` : 'idle'} className={`h-full w-full ${speaker === id ? 'hop' : ''}`}>
                 <div className="breathe h-full w-full" style={{ animationDelay: `${(id.charCodeAt(0) % 7) * 0.3}s` }}>
@@ -498,22 +498,22 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
       {/* HUD: แถวบน (ข้อมูล | ปุ่ม+แจ้งเตือน) แล้วตามด้วยแถบข้อความกลางจอ — วางเป็นลำดับ ไม่ทับกัน */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[40] p-2 sm:p-3">
         <div className="flex items-start justify-between gap-2">
-          <div className="pointer-events-auto flex min-w-0 max-w-[62vw] flex-col gap-1.5 sm:max-w-[250px]" onClick={(e) => e.stopPropagation()}>
+          <div className="pointer-events-auto flex min-w-0 max-w-[62vw] flex-col gap-1.5 sm:max-w-[15.625rem]" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setPanel('stats')} className="rounded-2xl bg-white/90 px-3 py-1.5 text-left shadow backdrop-blur sm:px-4 sm:py-2">
               <div className="truncate font-display text-base leading-tight text-[#5a3443] sm:text-lg">{s.name} · {scene.age} ปี {s.life === 2 && <span className="text-xs text-[#7b5cd6]">♾️ชาติ 2</span>}{(s.gen ?? 1) >= 2 && <span className="text-xs text-[#2f8f5a]">🧬รุ่น {s.gen}</span>}</div>
-              <div className="truncate text-[11px] text-[#8a6a76] sm:text-xs">{stageOf(scene.age)}{s.career ? ` · ${CAREERS[s.career]}` : ''}</div>
+              <div className="truncate text-[.75rem] text-[#8a6a76] sm:text-xs">{stageOf(scene.age)}{s.career ? ` · ${CAREERS[s.career]}` : ''}</div>
               <div className="flex gap-2 font-display text-xs sm:text-sm">
                 <span className="text-[#2f8f5a]">💰 {fmtBaht(s.cash + s.invest)}</span>
                 {s.debt > 0 && <span className="text-[#c0505f]">หนี้ {fmtBaht(s.debt)}</span>}
               </div>
-              {salaryOf(s, scene.age).monthly > 0 && <div className="truncate text-[10px] text-[#5a7a66] sm:text-[11px]">💼 {salaryOf(s, scene.age).monthly.toLocaleString('th-TH')} บ./เดือน</div>}
+              {salaryOf(s, scene.age).monthly > 0 && <div className="truncate text-[.75rem] text-[#5a7a66] sm:text-[.75rem]">💼 {salaryOf(s, scene.age).monthly.toLocaleString('th-TH')} บ./เดือน</div>}
               {dreamOf(s) && (
-                <div className="mt-1 truncate rounded-full bg-[#fff4d6] px-2 py-0.5 text-[10px] text-[#7a5a00] sm:text-[11px]">
+                <div className="mt-1 truncate rounded-full bg-[#fff4d6] px-2 py-0.5 text-[.75rem] text-[#7a5a00] sm:text-[.75rem]">
                   ⭐ {dreamOf(s)!.icon} {dreamOf(s)!.name} · {dreamOf(s)!.progress(s)}
                 </div>
               )}
             </button>
-            <div className="hidden flex-col gap-1 sm:flex">
+            <div className={`hidden flex-col gap-1 ${phase === 'choice' ? '2xl:flex' : 'sm:flex'}`}>
               {STAT_INFO.map((t) => (
                 <div key={t.key} className="flex items-center gap-2 rounded-full bg-white/75 py-0.5 pl-2 pr-3 text-sm shadow-sm backdrop-blur">
                   <span>{t.icon}</span>
@@ -536,15 +536,15 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
             ))}
           </div>
         </div>
-        <div className="mt-2 flex flex-col items-center gap-2 sm:absolute sm:left-1/2 sm:top-3 sm:mt-0 sm:w-[min(46vw,520px)] sm:-translate-x-1/2">
+        <div className="mt-2 flex flex-col items-center gap-2 sm:absolute sm:left-1/2 sm:top-3 sm:mt-0 sm:w-[min(46vw,32.5rem)] sm:-translate-x-1/2">
           {achPop.map((a) => (
             <div key={a.id} className="popin flex items-center gap-3 rounded-2xl border-2 border-[#ffd166] bg-[#2b2238]/95 px-4 py-2 text-white shadow-2xl">
               <span className="text-3xl">{a.icon}</span>
-              <span><span className="block text-[11px] tracking-wide text-[#ffd166]">ปลดล็อกถ้วยรางวัล!</span><span className="font-display">{a.name}</span></span>
+              <span><span className="block text-[.75rem] tracking-wide text-[#ffd166]">ปลดล็อกถ้วยรางวัล!</span><span className="font-display">{a.name}</span></span>
             </div>
           ))}
           {(phase === 'lines' || phase === 'choice' || phase === 'mini') && because && (
-            <div key={`b-${s.sceneId}`} className="popin w-[min(94vw,520px)] rounded-2xl sm:w-full border-2 border-[#ffd166] bg-[#fffaf0]/95 px-3 py-1.5 text-center text-xs text-[#6a4a00] shadow-lg sm:text-sm">
+            <div key={`b-${s.sceneId}`} className="popin w-[min(94vw,32.5rem)] rounded-2xl sm:w-full border-2 border-[#ffd166] bg-[#fffaf0]/95 px-3 py-1.5 text-center text-xs text-[#6a4a00] shadow-lg sm:text-sm">
               🔁 {because}
             </div>
           )}
@@ -552,7 +552,7 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
       </div>
 
       {secretPop && (
-        <div className="popin pointer-events-none absolute inset-x-0 top-[38%] z-[45] mx-auto w-[min(90vw,420px)] rounded-3xl border-4 border-[#ffd166] bg-[#140f20]/95 p-5 text-center text-white shadow-2xl">
+        <div className="popin pointer-events-none absolute inset-x-0 top-[38%] z-[45] mx-auto w-[min(90vw,26.25rem)] rounded-3xl border-4 border-[#ffd166] bg-[#140f20]/95 p-5 text-center text-white shadow-2xl">
           <div className="text-5xl">🔓</div>
           <div className="mt-1 font-display text-sm tracking-[0.25em] text-[#ffd166]">SECRET EVENT {String(secretPop).padStart(2, '0')}</div>
           <div className="font-display text-2xl">ค้นพบความลับ!</div>
@@ -594,10 +594,10 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
               <div className="popin mx-auto mt-5 max-w-xs rounded-3xl bg-white/95 px-5 py-4 text-[#3a2433] shadow-2xl" style={{ animationDelay: '.5s' }}>
                 <div className="text-5xl">{report.shock.icon}</div>
                 <div className="mt-1 font-display text-lg leading-snug">{report.shock.text}</div>
-                {report.shock.why && <div className="mx-auto mt-1 max-w-[18rem] text-[14px] leading-[1.6] text-[#5a3443]">{report.shock.why}</div>}
+                {report.shock.why && <div className="mx-auto mt-1 max-w-[18rem] text-[.875rem] leading-[1.6] text-[#5a3443]">{report.shock.why}</div>}
                 {Math.abs(report.shock.cash) >= 1000 && <div className={`mt-1 font-display ${report.shock.cash > 0 ? 'text-[#2f8f5a]' : 'text-[#c0505f]'}`}>{fmtBaht(report.shock.cash, true)}</div>}
-                <div className="mt-2 rounded-xl bg-[#f4f1fb] px-2 py-1 text-[13px] leading-[1.5] text-[#6a5a82]">📊 โอกาสจริง ~{report.shock.odds} ต่อปี<br /><span className="text-[#8a7a9a]">อ้างอิง: {SOURCES[report.shock.src]?.org}</span></div>
-                {report.shock.more > 0 && <div className="mt-1 text-[13px] text-[#8a6a76]">และอีก {report.shock.more} เรื่องในช่วงนี้ (ดูในสมุดชีวิต)</div>}
+                <div className="mt-2 rounded-xl bg-[#f4f1fb] px-2 py-1 text-[.8125rem] leading-[1.5] text-[#6a5a82]">📊 โอกาสจริง ~{report.shock.odds} ต่อปี<br /><span className="text-[#8a7a9a]">อ้างอิง: {SOURCES[report.shock.src]?.org}</span></div>
+                {report.shock.more > 0 && <div className="mt-1 text-[.8125rem] text-[#8a6a76]">และอีก {report.shock.more} เรื่องในช่วงนี้ (ดูในสมุดชีวิต)</div>}
               </div>
             )}
           </div>
@@ -613,7 +613,7 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
                 {whoName(line.who as CharId, s)}
               </div>
             )}
-            <div className="min-h-[130px] rounded-3xl border-4 border-white/70 bg-white/92 px-6 pb-8 pt-6 shadow-2xl backdrop-blur sm:min-h-[150px]">
+            <div className="min-h-[8.125rem] rounded-3xl border-4 border-white/70 bg-white/92 px-6 pb-8 pt-6 shadow-2xl backdrop-blur sm:min-h-[9.375rem]">
               <Typewriter key={`${s.sceneId}-${phase}-${idx}`} text={fillText(line.text, s)} italic={!line.who} />
               <span className="blink absolute bottom-3 right-5 text-[#e0707f]">▼</span>
             </div>
@@ -638,8 +638,8 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
 
       {/* ทางเลือก */}
       {phase === 'choice' && (
-        <div className={`absolute inset-0 z-20 flex justify-center p-3 pb-5 ${choices.length > 3 ? 'items-end bg-[#1d1a2b]/60 pt-[150px] sm:items-center sm:pt-[90px]' : 'items-end bg-[#1d1a2b]/35 pt-[150px] sm:items-center'}`} onClick={(e) => e.stopPropagation()}>
-          <div className="flex max-h-full w-full max-w-xl flex-col">
+        <div className={`absolute inset-0 z-20 flex justify-center p-3 pb-5 ${choices.length > 3 ? 'items-end bg-[#1d1a2b]/60 pt-[9.375rem] sm:items-center sm:pt-[7.5rem]' : 'items-end bg-[#1d1a2b]/35 pt-[9.375rem] sm:items-center'}`} onClick={(e) => e.stopPropagation()}>
+          <div className="flex max-h-full w-full max-w-xl flex-col lg:max-w-3xl">
             {scene.timer && <p className="mb-2 text-center font-display text-lg text-white drop-shadow">{reading ? '📖 อ่านตัวเลือกก่อน... แล้วจะเริ่มจับเวลา' : '⏰ เลือกเร็ว!'}</p>}
             {left != null && scene.timer && (
               <div className="mx-auto mb-3 flex max-w-sm items-center gap-2">
@@ -667,12 +667,12 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
                 return (
                   <button key={c.text} onClick={() => pick(c)} disabled={!!locked} style={{ animationDelay: `${i * 0.06}s` }}
                     className={`popin relative flex flex-col items-center justify-center gap-1 rounded-3xl border-4 px-3 py-4 text-center shadow-lg transition ${locked ? 'cursor-not-allowed border-white/40 bg-[#3a3346]/80' : c.trait ? 'border-[#ffd166] bg-[#fffaf0] shadow-[0_0_18px_rgba(255,209,102,.7)] hover:-translate-y-1 active:scale-95' : 'border-white bg-white/95 hover:-translate-y-1 hover:border-[#f6b5c2] active:scale-95'}`}>
-                    {c.trait && !locked && <span className="whitespace-nowrap rounded-full bg-[#ffd166] px-2 py-0.5 text-[11px] font-semibold text-[#6a4a00]">✨ ตัวเลือกจากนิสัย</span>}
+                    {c.trait && !locked && <span className="whitespace-nowrap rounded-full bg-[#ffd166] px-2 py-0.5 text-[.75rem] font-semibold text-[#6a4a00]">✨ ตัวเลือกจากนิสัย</span>}
                     <span className={`text-4xl sm:text-5xl ${locked ? 'opacity-40 grayscale' : ''}`}>{icon}</span>
-                    <span className={`font-display text-[15px] leading-snug sm:text-base ${locked ? 'text-white/60' : 'text-[#4a2c38]'}`}>{label}</span>
+                    <span className={`font-display text-[.9375rem] leading-snug sm:text-base ${locked ? 'text-white/60' : 'text-[#4a2c38]'}`}>{label}</span>
                     {locked
-                      ? <span className="rounded-full bg-black/30 px-2 py-0.5 text-[11px] text-[#ffd6de]">🔒 {locked}</span>
-                      : c.hint && <span className={`rounded-full px-2 py-0.5 text-[11px] ${c.trait ? 'bg-[#fff1c9] text-[#7a5a00]' : 'bg-[#f3eef7] text-[#7a5a96]'}`}>{c.hint}</span>}
+                      ? <span className="rounded-full bg-black/30 px-2 py-0.5 text-[.75rem] text-[#ffd6de]">🔒 {locked}</span>
+                      : c.hint && <span className={`rounded-full px-2 py-0.5 text-[.75rem] ${c.trait ? 'bg-[#fff1c9] text-[#7a5a00]' : 'bg-[#f3eef7] text-[#7a5a96]'}`}>{c.hint}</span>}
                   </button>
                 )
               })}
@@ -686,7 +686,7 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
       {/* แผง */}
       {panel && (
         <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/40 p-4" onClick={(e) => { e.stopPropagation(); setPanel(null) }}>
-          <div className="popin max-h-[80vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="popin max-h-[80dvh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             {panel === 'stats' && <StatsView s={s} age={scene.age} />}
             {panel === 'log' && <LifeLog s={s} />}
             {panel === 'menu' && (
@@ -725,13 +725,13 @@ function JobPicker({ s, choices, lockOf, onPick, onLocked, title }: { s: GameSta
           return (
             <button key={c.text} type="button" style={{ animationDelay: `${Math.min(i, 10) * 0.03}s` }}
               onClick={() => (locked ? onLocked(locked) : onPick(c))}
-              className={`${locked ? 'fadein bg-[#efeaf0] text-[#9a8a94]' : 'popin bg-white text-[#3a2433] ring-2 ring-[#f6d3dc] active:bg-[#fde8ed]'} flex touch-manipulation items-center gap-3 rounded-2xl px-3 py-2 text-left`}>
-              <span className={`text-2xl ${locked ? 'opacity-40 grayscale' : ''}`}>{icon}</span>
+              className={`${locked ? 'fadein bg-[#efeaf0] text-[#9a8a94]' : 'popin bg-white text-[#3a2433] ring-2 ring-[#f6d3dc] active:bg-[#fde8ed]'} flex touch-manipulation items-center gap-3 rounded-2xl px-3 py-2 text-left lg:py-2.5`}>
+              <span className={`text-2xl lg:text-3xl ${locked ? 'opacity-40 grayscale' : ''}`}>{icon}</span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-display text-[15px] leading-tight">{label}</span>
-                <span className="block truncate text-[11px]">{locked ? `🔒 ${locked}` : c.hint ?? ''}</span>
+                <span className="block truncate font-display text-[.9375rem] leading-tight lg:text-base">{label}</span>
+                <span className="block truncate text-[.75rem]">{locked ? `🔒 ${locked}` : c.hint ?? ''}</span>
               </span>
-              {job && <span className={`shrink-0 text-right font-display text-xs leading-tight ${locked ? '' : 'text-[#2f8f5a]'}`}>{job.monthly.toLocaleString('th-TH')}<span className="block text-[10px] font-normal text-[#8a6a76]">บ./เดือน</span></span>}
+              {job && <span className={`shrink-0 text-right font-display text-xs leading-tight ${locked ? '' : 'text-[#2f8f5a]'}`}>{job.monthly.toLocaleString('th-TH')}<span className="block text-[.75rem] font-normal text-[#8a6a76]">บ./เดือน</span></span>}
             </button>
           )
         })}
@@ -817,8 +817,8 @@ function StatsView({ s, age }: { s: GameState; age?: number }) {
       </div>
       <div className="mt-5 rounded-2xl bg-[#faf7fd] p-3">
         <div className="font-display text-xl text-[#5a3443]">🧬 นิสัยเด่นตอนนี้</div>
-        <div className="text-[13px] leading-[1.6] text-[#8a6a96]">นิสัยที่ติด 2 อันดับแรกจะปลดล็อก ✨ ตัวเลือกพิเศษ และทำให้คนรอบตัวพูดกับคุณต่างออกไป</div>
-        <div className="mt-2 flex flex-wrap gap-1.5">{personaPct(s).slice(0, 2).filter((p) => p.pct > 0).map((p) => <span key={p.k} className="rounded-full bg-white px-3 py-1 text-[14px] text-[#3a2433] ring-1 ring-black/5">{p.icon} {p.name} {p.pct}%</span>)}</div>
+        <div className="text-[.8125rem] leading-[1.6] text-[#8a6a96]">นิสัยที่ติด 2 อันดับแรกจะปลดล็อก ✨ ตัวเลือกพิเศษ และทำให้คนรอบตัวพูดกับคุณต่างออกไป</div>
+        <div className="mt-2 flex flex-wrap gap-1.5">{personaPct(s).slice(0, 2).filter((p) => p.pct > 0).map((p) => <span key={p.k} className="rounded-full bg-white px-3 py-1 text-[.875rem] text-[#3a2433] ring-1 ring-black/5">{p.icon} {p.name} {p.pct}%</span>)}</div>
       </div>
       <EndingCompass s={s} />
       {s.heirloom && <div className="mt-4 rounded-2xl bg-[#eef8f1] p-3 text-sm text-[#2f6a4a]">🎁 มรดกตระกูล: {s.heirloom}</div>}
@@ -843,20 +843,20 @@ function EndingCompass({ s }: { s: GameState }) {
   return (
     <div className="mt-5 rounded-2xl bg-[#f4f1fb] p-3">
       <div className="font-display text-xl text-[#5a3443]">🧭 ฉากจบวันเกิด 70</div>
-      <div className="text-[13px] leading-[1.6] text-[#8a6a76]">ฉากจบดูจาก <b className="font-normal text-[#3a2433]">ค่าที่เด่นที่สุด 2 อันดับแรก</b> ของชีวิตนี้ (เทียบกับชีวิตทั่วไป) ไม่ใช่ตัวเลขตายตัว</div>
-      <div className="mt-1 text-[13px] text-[#5a3443]">ตอนนี้เด่นที่สุด: {statProfile(s).top.map((k) => { const i = STAT_INFO.find((x) => x.key === k); return i ? `${i.icon} ${i.label}` : ({ family: '🏠 ครอบครัว', friend: '🤝 เพื่อน', love: '❤️ ความรัก' } as Record<string, string>)[k] }).join(' · ')}</div>
+      <div className="text-[.8125rem] leading-[1.6] text-[#8a6a76]">ฉากจบดูจาก <b className="font-normal text-[#3a2433]">ค่าที่เด่นที่สุด 2 อันดับแรก</b> ของชีวิตนี้ (เทียบกับชีวิตทั่วไป) ไม่ใช่ตัวเลขตายตัว</div>
+      <div className="mt-1 text-[.8125rem] text-[#5a3443]">ตอนนี้เด่นที่สุด: {statProfile(s).top.map((k) => { const i = STAT_INFO.find((x) => x.key === k); return i ? `${i.icon} ${i.label}` : ({ family: '🏠 ครอบครัว', friend: '🤝 เพื่อน', love: '❤️ ความรัก' } as Record<string, string>)[k] }).join(' · ')}</div>
       <div className={`mt-2 rounded-xl px-3 py-2 ${now.bad ? 'bg-[#fdecef]' : 'bg-[#eaf7ef]'}`}><span className="text-xl">{E(now.id).emoji}</span> <b className="font-display font-normal text-[#3a2433]">{E(now.id).title}</b></div>
       {close.length > 0 && <div className="mt-2 text-xs font-semibold text-[#7a5a66]">ใกล้แล้ว:</div>}
       {close.map((r) => (
         <div key={r.id} className="mt-1 rounded-xl bg-white px-3 py-2 text-sm">
           <div>{E(r.id).emoji} <span className="font-display text-[#3a2433]">{E(r.id).title}</span></div>
-          <div className="mt-0.5 flex flex-wrap gap-1">{r.checks.map((c) => <span key={c.label} className={`rounded-full px-2 py-0.5 text-[11px] ${c.ok ? 'bg-[#eaf7ef] text-[#2f6a4a]' : 'bg-[#f3eef0] text-[#8a6a76]'}`}>{c.ok ? '✅' : '○'} {c.label}</span>)}</div>
+          <div className="mt-0.5 flex flex-wrap gap-1">{r.checks.map((c) => <span key={c.label} className={`rounded-full px-2 py-0.5 text-[.75rem] ${c.ok ? 'bg-[#eaf7ef] text-[#2f6a4a]' : 'bg-[#f3eef0] text-[#8a6a76]'}`}>{c.ok ? '✅' : '○'} {c.label}</span>)}</div>
         </div>
       ))}
       {weird.map((r) => (
         <div key={r.id} className="mt-1 rounded-xl bg-[#efe9ff] px-3 py-2 text-sm">
-          <div>{E(r.id).emoji} <span className="font-display text-[#4a3a7a]">{E(r.id).title}</span> <span className="text-[10px] text-[#7b5cd6]">ฉากจบแปลก · เก็บธงให้ครบ</span></div>
-          <div className="mt-0.5 flex flex-wrap gap-1">{r.checks.map((c) => <span key={c.label} className={`rounded-full px-2 py-0.5 text-[11px] ${c.ok ? 'bg-white text-[#4a3a7a]' : 'bg-white/50 text-[#9a8ab6]'}`}>{c.ok ? '✅' : '❔'} {c.ok ? c.label : '???'}</span>)}</div>
+          <div>{E(r.id).emoji} <span className="font-display text-[#4a3a7a]">{E(r.id).title}</span> <span className="text-[.75rem] text-[#7b5cd6]">ฉากจบแปลก · เก็บธงให้ครบ</span></div>
+          <div className="mt-0.5 flex flex-wrap gap-1">{r.checks.map((c) => <span key={c.label} className={`rounded-full px-2 py-0.5 text-[.75rem] ${c.ok ? 'bg-white text-[#4a3a7a]' : 'bg-white/50 text-[#9a8ab6]'}`}>{c.ok ? '✅' : '❔'} {c.ok ? c.label : '???'}</span>)}</div>
         </div>
       ))}
     </div>
@@ -871,15 +871,15 @@ function EndingWhy({ s, ending }: { s: GameState; ending: Ending }) {
   const missed = idx > 0 ? rules.slice(0, idx).filter((r) => !r.bad) : []
   const E = (id: string) => ENDINGS.find((e) => e.id === id)!
   return (
-    <div className="mt-3 rounded-2xl bg-[#f6f2f4] p-3 text-[14px] leading-[1.65]">
-      <button onClick={() => setOpen(!open)} className="w-full text-left font-display text-[#5a3443]">🔍 ทำไมได้ฉากจบนี้? <span className="text-[13px]">{open ? '▲' : '▼'}</span></button>
+    <div className="mt-3 rounded-2xl bg-[#f6f2f4] p-3 text-[.875rem] leading-[1.65]">
+      <button onClick={() => setOpen(!open)} className="w-full text-left font-display text-[#5a3443]">🔍 ทำไมได้ฉากจบนี้? <span className="text-[.8125rem]">{open ? '▲' : '▼'}</span></button>
       {open && (
         <div className="mt-2 flex flex-col gap-1">
           {s.endId && !weird && <div className="text-[#5a4a52]">ชีวิตจบลงจากทางเลือกในเหตุการณ์หนึ่ง ก่อนถึงวันเกิด 70</div>}
           {weird && weird.checks.map((c) => <div key={c.label}>{c.ok ? '✅' : '○'} {c.label}</div>)}
           {!s.endId && idx >= 0 && rules[idx].checks.map((c) => <div key={c.label}>✅ {c.label}</div>)}
           {!s.endId && ending.id === 'ordinary' && <div className="text-[#5a4a52]">ไม่เข้าเงื่อนไขฉากจบอื่นเลย — ชีวิตกลาง ๆ ที่สงบ</div>}
-          {!s.endId && missed.length > 0 && <div className="mt-1 text-[13px] font-semibold text-[#7a5a66]">ฉากจบที่เกือบได้:</div>}
+          {!s.endId && missed.length > 0 && <div className="mt-1 text-[.8125rem] font-semibold text-[#7a5a66]">ฉากจบที่เกือบได้:</div>}
           {!s.endId && missed.map((r) => (
             <div key={r.id} className="rounded-xl bg-white px-2 py-1">{E(r.id).emoji} {E(r.id).title}: {r.checks.filter((c) => !c.ok).map((c) => c.label).join(' · ')}</div>
           ))}
@@ -901,23 +901,23 @@ function LifeLog({ s, collapsible }: { s: GameState; collapsible?: boolean }) {
   }, [])
   const flags = labeledFlags(s)
   return (
-    <div className="text-[15px] leading-[1.65]">
+    <div className="text-[.9375rem] leading-[1.65]">
       <h3 className="font-display text-2xl text-[#5a3443]">สมุดชีวิตของ {s.name}</h3>
       {flags.length > 0 && (
         <div className="mt-3 rounded-2xl bg-[#f8f4ef] p-3">
-          <div className="font-display text-[#5a3443]">🚩 ธงชีวิต <span className="font-body text-[13px] text-[#8a6a76]">ทางเลือกที่จะย้อนกลับมาหาคุณ</span></div>
-          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[13px] text-[#7a6a72]">
-            <span className="whitespace-nowrap"><span className="mr-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#3fae78] align-[-2px] text-[11px] font-bold leading-none text-white">+</span>พื้นเขียว = ผลดี</span>
-            <span className="whitespace-nowrap"><span className="mr-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#e0707f] align-[-2px] text-[11px] font-bold leading-none text-white">−</span>พื้นชมพู = ผลเสีย</span>
+          <div className="font-display text-[#5a3443]">🚩 ธงชีวิต <span className="font-body text-[.8125rem] text-[#8a6a76]">ทางเลือกที่จะย้อนกลับมาหาคุณ</span></div>
+          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[.8125rem] text-[#7a6a72]">
+            <span className="whitespace-nowrap"><span className="mr-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#3fae78] align-[-2px] text-[.75rem] font-bold leading-none text-white">+</span>พื้นเขียว = ผลดี</span>
+            <span className="whitespace-nowrap"><span className="mr-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-[#e0707f] align-[-2px] text-[.75rem] font-bold leading-none text-white">−</span>พื้นชมพู = ผลเสีย</span>
           </div>
           <div className="mt-2 flex flex-col gap-1">
             {flags.map((f) => (
-              <div key={f.id} className={`flex items-start gap-2 rounded-xl px-2 py-1.5 text-[14px] ${f.tone === 'bad' ? 'bg-[#fdecef]' : f.tone === 'good' ? 'bg-[#eaf7ef]' : 'bg-white'}`}>
+              <div key={f.id} className={`flex items-start gap-2 rounded-xl px-2 py-1.5 text-[.875rem] ${f.tone === 'bad' ? 'bg-[#fdecef]' : f.tone === 'good' ? 'bg-[#eaf7ef]' : 'bg-white'}`}>
                 {f.tone === 'good' || f.tone === 'bad'
-                  ? <span className={`mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[11px] font-bold leading-none text-white ${f.tone === 'good' ? 'bg-[#3fae78]' : 'bg-[#e0707f]'}`}>{f.tone === 'good' ? '+' : '−'}</span>
+                  ? <span className={`mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[.75rem] font-bold leading-none text-white ${f.tone === 'good' ? 'bg-[#3fae78]' : 'bg-[#e0707f]'}`}>{f.tone === 'good' ? '+' : '−'}</span>
                   : <span className="mt-1 h-4 w-4 shrink-0" />}
                 <span>{f.icon}</span>
-                <span className="min-w-0 flex-1"><b className="font-display font-normal text-[#3a2433]">{f.label}</b>{f.age !== undefined && <span className="text-[13px] text-[#8a6a76]"> · อายุ {f.age}</span>}<span className="block text-[13px] leading-[1.6] text-[#7a6a72]">→ {f.effect}</span></span>
+                <span className="min-w-0 flex-1"><b className="font-display font-normal text-[#3a2433]">{f.label}</b>{f.age !== undefined && <span className="text-[.8125rem] text-[#8a6a76]"> · อายุ {f.age}</span>}<span className="block text-[.8125rem] leading-[1.6] text-[#7a6a72]">→ {f.effect}</span></span>
               </div>
             ))}
           </div>
@@ -927,12 +927,12 @@ function LifeLog({ s, collapsible }: { s: GameState; collapsible?: boolean }) {
       <ol className="mt-4 border-l-2 border-[#f0d4dc] pl-4">
         {groups.map((g, gi) => (
           <li key={gi} className="relative mb-3">
-            <span className="font-display text-[14px] text-[#e0707f]">{g.age} ปี</span>
+            <span className="font-display text-[.875rem] text-[#e0707f]">{g.age} ปี</span>
             {g.items.map((h, i) => {
               const major = MAJOR_RE.test(h.text)
               return (
                 <div key={i} className="relative">
-                  <span className={`absolute rounded-full ${major ? '-left-[25px] top-[7px] h-4 w-4 bg-[#c0505f] ring-4 ring-[#fbe3e8]' : '-left-[22px] top-[9px] h-2.5 w-2.5 bg-[#ebb3bf]'}`} />
+                  <span className={`absolute rounded-full ${major ? '-left-[1.5625rem] top-[.4375rem] h-4 w-4 bg-[#c0505f] ring-4 ring-[#fbe3e8]' : '-left-[1.375rem] top-[.5625rem] h-2.5 w-2.5 bg-[#ebb3bf]'}`} />
                   <div className={major ? 'font-semibold text-[#3a2433]' : 'text-[#5a4a52]'}>{h.text}</div>
                 </div>
               )
@@ -1008,9 +1008,9 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
   return (
     <div className="fadein absolute inset-0 overflow-y-auto">
       <div className="fixed inset-0" style={{ filter: ending.kind === 'bad' ? 'grayscale(.7) brightness(.7)' : ending.kind === 'weird' ? 'hue-rotate(200deg) saturate(1.3)' : undefined }}><Background id="sky" /></div>
-      <div className="relative z-10 mx-auto flex min-h-full max-w-4xl flex-col items-center gap-3 px-4 py-6 md:flex-row md:items-start md:gap-6 md:py-12">
+      <div className="relative z-10 mx-auto flex min-h-full max-w-4xl flex-col items-center gap-3 px-4 py-6 md:flex-row md:items-start md:gap-6 md:py-12 lg:max-w-7xl">
         {/* ตัวละคร: มือถืออยู่เหนือการ์ด (เล็กลง) · จอใหญ่อยู่ข้าง ๆ แบบ sticky — ขอบล่างจางหายด้วย mask */}
-        <div className="bob h-[24vh] w-[18vh] shrink-0 md:sticky md:top-12 md:h-[60vh] md:w-[45vh]" style={{ WebkitMaskImage: fade, maskImage: fade }}>
+        <div className="bob h-[24dvh] w-[18dvh] shrink-0 md:sticky md:top-12 md:h-[60dvh] md:w-[45dvh] lg:h-[50dvh] lg:w-[30dvh]" style={{ WebkitMaskImage: fade, maskImage: fade }}>
           <div className="h-full w-full" style={{ filter: art.filter }}>
             {art.src
               ? <img src={art.src} alt={s.name} className="h-full w-full object-contain object-bottom" draggable={false} />
@@ -1018,10 +1018,12 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
           </div>
         </div>
 
-        <div className="flex w-full min-w-0 flex-col gap-4 text-[15px] leading-[1.65]">
+        {/* จอใหญ่: สรุป+ไปต่อ (ซ้าย) คู่กับรายละเอียด (ขวา) · จอเล็ก: เรียงลงมาทีละกล่อง */}
+        <div className="grid w-full min-w-0 grid-cols-1 items-start gap-4 text-[.9375rem] leading-[1.65] lg:grid-cols-2">
+        <div className="flex min-w-0 flex-col gap-4">
           {/* ───── การ์ดสรุป (แคปหน้าจอเดียวจบ) ───── */}
           <div className="popin rounded-3xl bg-white/95 p-5 shadow-2xl sm:p-6">
-            <div className="flex flex-wrap items-center gap-1.5 text-[13px] text-[#8a6a76]">
+            <div className="flex flex-wrap items-center gap-1.5 text-[.8125rem] text-[#8a6a76]">
               <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 font-semibold ${tag.c}`}>{tag.t}</span>
               {isNew && <span className="whitespace-nowrap rounded-full bg-[#ffd166] px-2.5 py-0.5 font-semibold text-[#6a4a00]">✨ ฉากจบใหม่!</span>}
               <span className="whitespace-nowrap">ชีวิตของ {s.name} · {early ? `จากไปตอนอายุ ${age} ปี` : `${age} ปี`}</span>
@@ -1033,7 +1035,7 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
               <div className={`popin mt-4 flex items-center gap-3 rounded-2xl border-2 p-3 ${dreamOk ? 'border-[#8fd3a8] bg-[#eefaf2]' : 'border-[#e6e1e4] bg-[#f5f3f4]'}`} style={{ animationDelay: '.4s' }}>
                 <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xl font-bold text-white ${dreamOk ? 'bg-[#3fae78]' : 'bg-[#b9b0b5]'}`}>{dreamOk ? '✓' : '✗'}</span>
                 <div className="min-w-0">
-                  <div className="text-[13px] text-[#8a6a76]">ความฝันของชีวิต</div>
+                  <div className="text-[.8125rem] text-[#8a6a76]">ความฝันของชีวิต</div>
                   <div className={`font-display text-lg ${dreamOk ? 'text-[#2f6a4a]' : 'text-[#8f868b]'}`}>{dream.icon} {dream.name} — {dreamOk ? 'ทำได้แล้ว!' : 'ยังไปไม่ถึง'}</div>
                 </div>
               </div>
@@ -1043,16 +1045,16 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
 
             <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-2.5 sm:grid-cols-3">
               {STAT_INFO.map((t) => (
-                <div key={t.key} className="text-[14px]">
-                  <div className="flex items-center justify-between gap-1"><span className="truncate">{t.icon} {t.label}</span><span className="whitespace-nowrap font-display text-[#3a2433]">{s.stats[t.key] > STAT_MAX && <span className="mr-0.5 text-[13px] text-[#d4a017]">★</span>}{s.stats[t.key]}<span className="text-[13px] text-[#a08a94]">/{STAT_MAX}</span></span></div>
+                <div key={t.key} className="text-[.875rem]">
+                  <div className="flex items-center justify-between gap-1"><span className="truncate">{t.icon} {t.label}</span><span className="whitespace-nowrap font-display text-[#3a2433]">{s.stats[t.key] > STAT_MAX && <span className="mr-0.5 text-[.8125rem] text-[#d4a017]">★</span>}{s.stats[t.key]}<span className="text-[.8125rem] text-[#a08a94]">/{STAT_MAX}</span></span></div>
                   <div className={`mt-1 h-2 overflow-hidden rounded-full bg-black/10 ${s.stats[t.key] > STAT_MAX ? 'ring-2 ring-[#ffd166]' : ''}`}><div className="h-full rounded-full" style={{ width: `${Math.min(100, (s.stats[t.key] / STAT_MAX) * 100)}%`, background: t.color }} /></div>
                 </div>
               ))}
             </div>
 
             <div className="mt-4 flex justify-between gap-3 rounded-2xl bg-[#fdf3f5] p-4">
-              <div className="min-w-0"><div className="whitespace-nowrap text-[13px] text-[#8a6a76]">💼 อาชีพ</div><div className="font-display text-xl text-[#4a2c38]">{s.career ? CAREERS[s.career] : 'ยังค้นหาตัวเองอยู่'}</div></div>
-              <div className="text-right"><div className="whitespace-nowrap text-[13px] text-[#8a6a76]">💰 ทรัพย์สินสุทธิ</div><div className={`whitespace-nowrap font-display text-xl ${netWorth(s) < 0 ? 'text-[#c0505f]' : 'text-[#2f8f5a]'}`}>{fmtBaht(netWorth(s))}</div></div>
+              <div className="min-w-0"><div className="whitespace-nowrap text-[.8125rem] text-[#8a6a76]">💼 อาชีพ</div><div className="font-display text-xl text-[#4a2c38]">{s.career ? CAREERS[s.career] : 'ยังค้นหาตัวเองอยู่'}</div></div>
+              <div className="text-right"><div className="whitespace-nowrap text-[.8125rem] text-[#8a6a76]">💰 ทรัพย์สินสุทธิ</div><div className={`whitespace-nowrap font-display text-xl ${netWorth(s) < 0 ? 'text-[#c0505f]' : 'text-[#2f8f5a]'}`}>{fmtBaht(netWorth(s))}</div></div>
             </div>
 
             <button onClick={share} className="mt-4 w-full whitespace-nowrap rounded-2xl bg-[#e0707f] px-5 py-3.5 font-display text-lg text-white shadow-lg transition hover:bg-[#d65f70] active:scale-[.98]">
@@ -1066,7 +1068,7 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
               <button onClick={onAgain} className="whitespace-nowrap rounded-2xl border-2 border-[#e0707f] bg-white/70 px-3 py-3 font-display text-base text-[#c0505f] transition hover:bg-[#fdf3f5] active:scale-95">✨ เริ่มชีวิตใหม่</button>
               <button onClick={onTitle} className="whitespace-nowrap rounded-2xl border-2 border-[#d9c9d0] bg-white/70 px-3 py-3 font-display text-base text-[#5a3443] transition hover:bg-[#f6f2f4] active:scale-95">🏠 หน้าแรก</button>
             </div>
-            <div className="mt-3 flex flex-col gap-1 rounded-2xl bg-[#f6f2f8] px-3 py-2 text-[13px] leading-[1.6] text-[#6a5a72]">
+            <div className="mt-3 flex flex-col gap-1 rounded-2xl bg-[#f6f2f8] px-3 py-2 text-[.8125rem] leading-[1.6] text-[#6a5a72]">
               {s.life !== 2 && <div><b className="font-display font-normal text-[#3a2433]">🔄 ไปเกิดชาติที่ 2</b> — เล่นต่อ พร้อมกรรมจากชาตินี้ติดตัวไป</div>}
               <div><b className="font-display font-normal text-[#3a2433]">✨ เริ่มชีวิตใหม่</b> — เริ่มจากศูนย์ ไม่มีอะไรจากชีวิตนี้ติดตัวไป</div>
             </div>
@@ -1083,8 +1085,8 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
               <div className="popin mt-4 rounded-2xl border-2 border-[#3fae78] bg-[#eef8f1] p-4" style={{ animationDelay: '.6s' }}>
                 <div className="font-display text-lg text-[#2f6a4a]">🧬 ส่งต่อตระกูลให้ลูก (รุ่นที่ {(s.gen ?? 1) + 1})</div>
                 <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-                  <div className="rounded-xl bg-white p-2"><div className="text-[13px] text-[#5a7a66]">มรดก</div><div className={`font-display ${inh.debt ? 'text-[#c0505f]' : 'text-[#2f8f5a]'}`}>{inh.debt ? `หนี้ ${fmtBaht(inh.debt)}` : fmtBaht(inh.cash)}</div></div>
-                  <div className="rounded-xl bg-white p-2"><div className="text-[13px] text-[#5a7a66]">ของตกทอด</div><div className="font-display text-[#3a2433]">{heir.icon} {heir.name}</div><div className="text-[13px] text-[#8a6a76]">{heir.desc}</div></div>
+                  <div className="rounded-xl bg-white p-2"><div className="text-[.8125rem] text-[#5a7a66]">มรดก</div><div className={`font-display ${inh.debt ? 'text-[#c0505f]' : 'text-[#2f8f5a]'}`}>{inh.debt ? `หนี้ ${fmtBaht(inh.debt)}` : fmtBaht(inh.cash)}</div></div>
+                  <div className="rounded-xl bg-white p-2"><div className="text-[.8125rem] text-[#5a7a66]">ของตกทอด</div><div className="font-display text-[#3a2433]">{heir.icon} {heir.name}</div><div className="text-[.8125rem] text-[#8a6a76]">{heir.desc}</div></div>
                 </div>
                 <button onClick={() => { sfx('whoosh'); onLegacy() }} className="mt-3 w-full whitespace-nowrap rounded-2xl bg-[#3fae78] px-5 py-3 font-display text-lg text-white shadow-lg active:scale-95">👶 เล่นต่อเป็นลูก</button>
               </div>
@@ -1103,9 +1105,10 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
               </div>
             )}
           </div>
+        </div>
 
           {/* ───── รายละเอียด ───── */}
-          <div className="rounded-3xl bg-white/95 p-5 shadow-xl sm:p-6">
+          <div className="min-w-0 rounded-3xl bg-white/95 p-5 shadow-xl sm:p-6">
             <EndingWhy s={s} ending={ending} />
             <RoadsNotTaken s={s} />
             {s.lineage?.length ? <FamilyTree lineage={s.lineage} me={{ name: s.name, emoji: ending.emoji, age }} /> : null}
@@ -1118,8 +1121,8 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4" onClick={() => setShareText(null)}>
           <div className="popin w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-display text-xl text-[#5a3443]">📤 แชร์ผลชีวิต</h3>
-            <p className="text-[13px] leading-[1.6] text-[#8a6a76]">เบราว์เซอร์นี้ไม่อนุญาตให้คัดลอกอัตโนมัติ — กดค้างที่ข้อความแล้วเลือก "คัดลอก"</p>
-            <textarea readOnly value={shareText} onFocus={(e) => e.currentTarget.select()} autoFocus rows={9} className="mt-2 w-full select-text rounded-xl border-2 border-[#f0d4dc] p-2 text-[14px] leading-[1.6] text-[#3a2433]" />
+            <p className="text-[.8125rem] leading-[1.6] text-[#8a6a76]">เบราว์เซอร์นี้ไม่อนุญาตให้คัดลอกอัตโนมัติ — กดค้างที่ข้อความแล้วเลือก "คัดลอก"</p>
+            <textarea readOnly value={shareText} onFocus={(e) => e.currentTarget.select()} autoFocus rows={9} className="mt-2 w-full select-text rounded-xl border-2 border-[#f0d4dc] p-2 text-[.875rem] leading-[1.6] text-[#3a2433]" />
             <button onClick={() => setShareText(null)} className="mt-3 w-full whitespace-nowrap rounded-2xl bg-[#e0707f] py-3 font-display text-white">✔️ เรียบร้อย</button>
           </div>
         </div>
@@ -1144,33 +1147,33 @@ async function copyText(text: string) {
 function RealStats() {
   const groups = Object.values(SOURCES).filter((x) => x.id !== 'game')
   return (
-    <div className="mt-4 text-[14px] leading-[1.65]">
+    <div className="mt-4 text-[.875rem] leading-[1.65]">
       <p className="rounded-2xl bg-[#f4f1fb] p-3 text-[#5a4a6a]">เรื่องไม่คาดคิดในเกมไม่ได้สุ่มลอย ๆ — ทุกปีเกมจะทอยแต่ละเรื่องตาม <b>โอกาสจริงต่อปี</b> ที่คิดจากสถิติของประเทศไทย แล้วปรับตามอายุ ร่างกาย ประกัน อาชีพ และที่อยู่ของตัวละคร</p>
       <div className="mt-3 flex flex-col gap-2">
         {SHOCKS.map((x) => (
           <div key={x.id} className={`rounded-2xl p-3 ${x.src === 'game' ? 'bg-[#f6f2f4]' : 'bg-white ring-1 ring-black/5'}`}>
-            <div className="flex items-start gap-2"><span className="text-2xl">{x.icon}</span><div className="min-w-0 flex-1"><div className="font-display text-[#3a2433]">{x.text}</div><div className="text-[13px] text-[#6a5a72]">อายุ {x.min}–{x.max} · {x.basis}</div><div className="text-[13px] text-[#8a7a9a]">ที่มา: {SOURCES[x.src].org}</div></div></div>
+            <div className="flex items-start gap-2"><span className="text-2xl">{x.icon}</span><div className="min-w-0 flex-1"><div className="font-display text-[#3a2433]">{x.text}</div><div className="text-[.8125rem] text-[#6a5a72]">อายุ {x.min}–{x.max} · {x.basis}</div><div className="text-[.8125rem] text-[#8a7a9a]">ที่มา: {SOURCES[x.src].org}</div></div></div>
           </div>
         ))}
         <div className="rounded-2xl bg-white p-3 ring-1 ring-black/5">
-          <div className="flex items-start gap-2"><span className="text-2xl">📈</span><div className="min-w-0 flex-1"><div className="font-display text-[#3a2433]">ผลตอบแทนการลงทุน</div><div className="text-[13px] text-[#6a5a72]">ทุกปีสุ่ม "ปีจริง" จากดัชนี SET 2537–2567 (หุ้น 60% + ปันผล 3% / เงินฝาก-บ้าน 40%) · ตลาดร่วงหนัก ≈{(MARKET_BASIS.crash * 100).toFixed(0)}% ต่อปี · พุ่งแรง ≈{(MARKET_BASIS.boom * 100).toFixed(0)}% ต่อปี</div></div></div>
+          <div className="flex items-start gap-2"><span className="text-2xl">📈</span><div className="min-w-0 flex-1"><div className="font-display text-[#3a2433]">ผลตอบแทนการลงทุน</div><div className="text-[.8125rem] text-[#6a5a72]">ทุกปีสุ่ม "ปีจริง" จากดัชนี SET 2537–2567 (หุ้น 60% + ปันผล 3% / เงินฝาก-บ้าน 40%) · ตลาดร่วงหนัก ≈{(MARKET_BASIS.crash * 100).toFixed(0)}% ต่อปี · พุ่งแรง ≈{(MARKET_BASIS.boom * 100).toFixed(0)}% ต่อปี</div></div></div>
         </div>
       </div>
       <h3 className="mt-5 font-display text-lg text-[#5a3443]">👵 พ่อแม่จะอยู่กับเรานานแค่ไหน</h3>
-      <div className="mt-2 rounded-2xl bg-white p-3 ring-1 ring-black/5 text-[13px] text-[#6a5a72]">
+      <div className="mt-2 rounded-2xl bg-white p-3 ring-1 ring-black/5 text-[.8125rem] text-[#6a5a72]">
         แม่อายุ {PARENT_AGE.mom} ปีตอนคุณเกิด (UN) พ่ออายุ {PARENT_AGE.dad} ปี — หลังคุณอายุ 30 เกมทอยทุกปีตาม <b className="font-normal text-[#3a2433]">ตารางชีพ UN ของประเทศไทย</b> เช่น ผู้หญิงอายุ 70 มีโอกาสจากไป {pct(qx(70, 'f'))} ต่อปี ผู้ชาย {pct(qx(70, 'm'))} ต่อปี · อายุ 85: {pct(qx(85, 'f'))} / {pct(qx(85, 'm'))} — ฉาก "ลาก่อนแม่/พ่อ" จึงเกิดในอายุที่ต่างกันทุกชีวิต และหลังจากนั้นจะไม่มีฉากที่มีพ่อ/แม่อีก
         <div className="mt-1 text-[#8a7a9a]">ที่มา: {SOURCES.un_wpp.org} · {SOURCES.un_birth.org}</div>
       </div>
       <h3 className="mt-5 font-display text-lg text-[#5a3443]">แหล่งข้อมูล</h3>
       <div className="mt-2 flex flex-col gap-2">
         {groups.map((g) => (
-          <div key={g.id} className="block rounded-2xl bg-[#faf7fd] p-3 text-[13px] leading-[1.6] text-[#5a4a6a]">
+          <div key={g.id} className="block rounded-2xl bg-[#faf7fd] p-3 text-[.8125rem] leading-[1.6] text-[#5a4a6a]">
             <b className="font-display font-normal text-[#3a2433]">{g.org}</b> · {g.year}<br />{g.title}
-            {g.url && <div className="mt-0.5 select-all break-all text-[13px] text-[#9a8ab0]">{g.url.replace(/^https?:\/\//, '')}</div>}
+            {g.url && <div className="mt-0.5 select-all break-all text-[.8125rem] text-[#9a8ab0]">{g.url.replace(/^https?:\/\//, '')}</div>}
           </div>
         ))}
       </div>
-      <p className="mt-3 text-[13px] text-[#8a7a9a]">ตัวเลขที่เขียนว่า "ประมาณ" คือค่าที่คำนวณต่อจากสถิติทางการ เพราะไม่มีตัวเลขรายปีตามอายุโดยตรง</p>
+      <p className="mt-3 text-[.8125rem] text-[#8a7a9a]">ตัวเลขที่เขียนว่า "ประมาณ" คือค่าที่คำนวณต่อจากสถิติทางการ เพราะไม่มีตัวเลขรายปีตามอายุโดยตรง</p>
     </div>
   )
 }
@@ -1217,13 +1220,13 @@ function Album({ onBack }: { onBack: () => void }) {
                       <Background id="sky" />
                       <div className="absolute inset-x-0 bottom-0 top-2"><Character id="me" playerAge={Math.min(l.age, 70)} s={{ ...newGame(l.name, l.gender, HAIRS[0]), career: l.career }} bg="sky" expr={l.kind === 'bad' ? 'sad' : 'happy'} /></div>
                       <span className="absolute left-2 top-2 rounded-full bg-white/90 px-2 text-lg">{l.emoji}</span>
-                      {l.gen >= 2 && <span className="absolute right-2 top-2 rounded-full bg-[#3fae78] px-2 text-[10px] text-white">รุ่น {l.gen}</span>}
-                      {l.life === 2 && <span className="absolute right-2 top-2 rounded-full bg-[#2b2238] px-2 text-[10px] text-[#ffd166]">ชาติ 2</span>}
+                      {l.gen >= 2 && <span className="absolute right-2 top-2 rounded-full bg-[#3fae78] px-2 text-[.75rem] text-white">รุ่น {l.gen}</span>}
+                      {l.life === 2 && <span className="absolute right-2 top-2 rounded-full bg-[#2b2238] px-2 text-[.75rem] text-[#ffd166]">ชาติ 2</span>}
                     </div>
                     <div className="p-2">
                       <div className="truncate font-display text-[#3a2433]">{l.name} · {l.age} ปี</div>
                       <div className="truncate text-xs text-[#8a6a76]">{l.title}</div>
-                      <div className="mt-0.5 flex justify-between text-[11px]"><span className="truncate text-[#8a6a76]">{l.career ? CAREERS[l.career] : '—'}</span><span>{l.dreamOk ? '⭐' : ''}</span></div>
+                      <div className="mt-0.5 flex justify-between text-[.75rem]"><span className="truncate text-[#8a6a76]">{l.career ? CAREERS[l.career] : '—'}</span><span>{l.dreamOk ? '⭐' : ''}</span></div>
                     </div>
                   </button>
                 ))}
@@ -1241,7 +1244,7 @@ function Album({ onBack }: { onBack: () => void }) {
                       {f.map((l, i) => (
                         <span key={l.id} className="flex items-center gap-1">
                           {i > 0 && <span className="text-[#8aa898]">→</span>}
-                          <button onClick={() => setOpen(l)} className="rounded-xl bg-white px-2 py-1 text-sm shadow-sm">{l.emoji} {l.name} <span className="text-[11px] text-[#8a6a76]">{l.age} ปี</span></button>
+                          <button onClick={() => setOpen(l)} className="rounded-xl bg-white px-2 py-1 text-sm shadow-sm">{l.emoji} {l.name} <span className="text-[.75rem] text-[#8a6a76]">{l.age} ปี</span></button>
                         </span>
                       ))}
                     </div>
@@ -1259,7 +1262,7 @@ function Album({ onBack }: { onBack: () => void }) {
                 const ok = got.includes(e.id)
                 return (
                   <div key={e.id} className={`rounded-2xl p-4 ${ok ? 'bg-[#fdf3f5]' : 'bg-[#f1eef2]'}`}>
-                    <div className="flex items-center gap-2 font-display text-xl text-[#4a2c38]">{ok ? `${e.emoji} ${e.title}` : '🔒 ???'}<span className={`ml-auto rounded-full px-2 py-0.5 font-body text-[11px] ${e.kind === 'bad' ? 'bg-[#5a4a5e] text-white' : e.kind === 'weird' ? 'bg-[#7b5cd6] text-white' : 'bg-[#3fae78] text-white'}`}>{e.kind === 'bad' ? 'แย่' : e.kind === 'weird' ? 'แปลก' : 'ดี'}</span></div>
+                    <div className="flex items-center gap-2 font-display text-xl text-[#4a2c38]">{ok ? `${e.emoji} ${e.title}` : '🔒 ???'}<span className={`ml-auto rounded-full px-2 py-0.5 font-body text-[.75rem] ${e.kind === 'bad' ? 'bg-[#5a4a5e] text-white' : e.kind === 'weird' ? 'bg-[#7b5cd6] text-white' : 'bg-[#3fae78] text-white'}`}>{e.kind === 'bad' ? 'แย่' : e.kind === 'weird' ? 'แปลก' : 'ดี'}</span></div>
                     <div className="mt-1 text-sm text-[#6a5a62]">{ok ? e.desc : `💡 ${END_HINT[e.id] ?? 'ลองเลือกเส้นทางชีวิตที่ต่างออกไปดูสิ'}`}</div>
                   </div>
                 )
@@ -1275,7 +1278,7 @@ function Album({ onBack }: { onBack: () => void }) {
                   <div key={a.id} className={`rounded-2xl p-3 text-center ${ok ? 'bg-[#fff8e1]' : 'bg-[#f1eef2] opacity-60'}`}>
                     <div className={`text-3xl ${ok ? '' : 'grayscale'}`}>{ok ? a.icon : '🔒'}</div>
                     <div className="font-display text-sm text-[#3a2433]">{a.name}</div>
-                    <div className="text-[11px] text-[#8a6a76]">{a.desc}</div>
+                    <div className="text-[.75rem] text-[#8a6a76]">{a.desc}</div>
                   </div>
                 )
               })}
@@ -1309,7 +1312,7 @@ function Album({ onBack }: { onBack: () => void }) {
                   <div key={u.id} className={`flex items-center gap-3 rounded-2xl p-3 ${ok ? 'bg-[#fff8e1]' : 'bg-[#f1eef2]'}`}>
                     <span className={`text-3xl ${ok ? '' : 'opacity-40 grayscale'}`}>{u.icon}</span>
                     <div className="min-w-0 flex-1">
-                      <div className="font-display text-[#3a2433]">{u.name} <span className="ml-1 rounded-full bg-black/5 px-2 font-body text-[10px] text-[#8a6a76]">{u.kind === 'trait' ? 'ไพ่ดวงชะตา' : u.kind === 'dream' ? 'ความฝัน' : 'ความสามารถ'}</span></div>
+                      <div className="font-display text-[#3a2433]">{u.name} <span className="ml-1 rounded-full bg-black/5 px-2 font-body text-[.75rem] text-[#8a6a76]">{u.kind === 'trait' ? 'ไพ่ดวงชะตา' : u.kind === 'dream' ? 'ความฝัน' : 'ความสามารถ'}</span></div>
                       <div className="text-xs text-[#8a6a76]">{ok ? u.desc : `🔒 วิธีปลดล็อก: ${u.how}`}</div>
                     </div>
                     {ok && <span className="text-[#3fae78]">✓</span>}
@@ -1322,7 +1325,7 @@ function Album({ onBack }: { onBack: () => void }) {
       </div>
       {open && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" onClick={() => setOpen(null)}>
-          <div className="popin max-h-[85vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="popin max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="text-sm text-[#8a6a76]">{new Date(open.at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}{open.gen >= 2 ? ` · รุ่นที่ ${open.gen}` : ''}{open.life === 2 ? ' · ชาติที่ 2' : ''}</div>
             <h3 className="font-display text-2xl text-[#3a2433]">{open.emoji} {open.name} · {open.age} ปี</h3>
             <div className="text-[#5a4a52]">{open.title}</div>
@@ -1337,7 +1340,7 @@ function Album({ onBack }: { onBack: () => void }) {
             </div>
             <ol className="mt-4 border-l-2 border-[#f0d4dc] pl-4">
               {open.history.map((h, i) => (
-                <li key={i} className="relative mb-2"><span className="absolute -left-[23px] top-1.5 h-3 w-3 rounded-full bg-[#e0707f]" /><span className="font-display text-xs text-[#e0707f]">{h.age} ปี</span><div className="text-sm text-[#4a2c38]">{h.text}</div></li>
+                <li key={i} className="relative mb-2"><span className="absolute -left-[1.4375rem] top-1.5 h-3 w-3 rounded-full bg-[#e0707f]" /><span className="font-display text-xs text-[#e0707f]">{h.age} ปี</span><div className="text-sm text-[#4a2c38]">{h.text}</div></li>
               ))}
             </ol>
             <Btn className="mt-3 w-full" onClick={() => setOpen(null)}>ปิด</Btn>
@@ -1357,13 +1360,13 @@ function PersonaCard({ s }: { s: GameState }) {
   const best = top[0]?.pct ?? 0
   return (
     <div className="popin mt-4 rounded-2xl border-2 border-[#e9dcf7] bg-[#faf7fd] p-4" style={{ animationDelay: '.45s' }}>
-      <div className="text-[13px] text-[#8a6a96]">🧬 บุคลิกชีวิตของคุณ · {personaTitle(s)}</div>
+      <div className="text-[.8125rem] text-[#8a6a96]">🧬 บุคลิกชีวิตของคุณ · {personaTitle(s)}</div>
       <div className="mt-0.5 font-display text-xl leading-snug text-[#3a2433]">"{personaSentence(s)}"</div>
       <div className="mt-2 flex flex-col gap-1.5">
         {top.map((p) => {
           const hi = best > 0 && p.pct === best
           return (
-            <div key={p.k} className={`flex items-center gap-2 rounded-xl px-1.5 py-0.5 text-[14px] ${hi ? 'bg-white shadow-sm ring-1 ring-black/5' : ''}`}>
+            <div key={p.k} className={`flex items-center gap-2 rounded-xl px-1.5 py-0.5 text-[.875rem] ${hi ? 'bg-white shadow-sm ring-1 ring-black/5' : ''}`}>
               <span className={`w-[7.5rem] shrink-0 whitespace-nowrap ${hi ? 'font-semibold text-[#3a2433]' : 'text-[#5a4a62]'}`}>{p.icon} {p.name}</span>
               <div className={`${hi ? 'h-3' : 'h-2.5'} flex-1 overflow-hidden rounded-full bg-black/10`}><div className="h-full rounded-full" style={{ width: `${p.pct}%`, background: TRAIT_COLOR[p.k], opacity: hi ? 1 : 0.75 }} /></div>
               <span className="w-10 whitespace-nowrap text-right font-display" style={{ color: hi ? TRAIT_COLOR[p.k] : '#5a3443' }}>{p.pct}%</span>
@@ -1382,7 +1385,7 @@ function RoadsNotTaken({ s }: { s: GameState }) {
     <div className="mt-4 rounded-2xl bg-[#faf7fd] p-3">
       <div className="font-display text-[#5a3a6a]">🛤️ ทางที่ไม่ได้เลือก</div>
       <div className="mt-1 flex flex-col gap-1">
-        {roads.map((r, i) => <div key={i} className="text-[14px] leading-[1.65] text-[#5a4a62]"><span className="whitespace-nowrap font-display text-[#8a6a96]">อายุ {r.age}:</span> เลือก {r.chose} — แทนที่จะ {r.other}</div>)}
+        {roads.map((r, i) => <div key={i} className="text-[.875rem] leading-[1.65] text-[#5a4a62]"><span className="whitespace-nowrap font-display text-[#8a6a96]">อายุ {r.age}:</span> เลือก {r.chose} — แทนที่จะ {r.other}</div>)}
       </div>
     </div>
   )
@@ -1397,7 +1400,7 @@ function FamilyTree({ lineage, me }: { lineage: NonNullable<GameState['lineage']
           <div key={i} className="flex items-center gap-2 text-sm" style={{ paddingLeft: i * 12 }}>
             <span className="text-[#8aa898]">{i ? '└' : '●'}</span>
             <span className="font-display text-[#3a2433]">{a.emoji} {a.name}</span>
-            <span className="text-[13px] text-[#8a6a76]">{a.age} ปี{a.heirloom ? ` · ทิ้งไว้ ${a.heirloom}` : ''}</span>
+            <span className="text-[.8125rem] text-[#8a6a76]">{a.age} ปี{a.heirloom ? ` · ทิ้งไว้ ${a.heirloom}` : ''}</span>
           </div>
         ))}
       </div>
@@ -1468,7 +1471,7 @@ function Legacy({ prev, onStart, onBack }: { prev: GameState; onStart: (g: GameS
                   if (!xs.length) return null
                   return (
                     <div key={k}>
-                      <div className="text-[11px] font-semibold text-[#9a7aa6]">{k === 'habit' ? 'นิสัยที่ติดมา' : k === 'skill' ? 'สิ่งที่คุณสอนไว้' : 'คนที่จะคอยช่วย'}</div>
+                      <div className="text-[.75rem] font-semibold text-[#9a7aa6]">{k === 'habit' ? 'นิสัยที่ติดมา' : k === 'skill' ? 'สิ่งที่คุณสอนไว้' : 'คนที่จะคอยช่วย'}</div>
                       {xs.map((x) => (
                         <div key={x.name} className="flex items-start gap-2 rounded-xl bg-white/80 px-2 py-1.5 text-sm"><span className="text-xl">{x.icon}</span><span><span className="font-display text-[#3a2433]">{x.name}</span><span className="block text-xs text-[#8a6a76]">{x.desc}</span></span></div>
                       ))}
@@ -1595,7 +1598,7 @@ function TwoLives({ s, ending, dreamOk, age }: { s: GameState; ending: Ending; d
         <span className="font-display text-lg text-[#3a2433]">♾️ สรุปสองชาติ</span>
         <span className={`font-display text-xl ${rank.c}`}>{rank.e} {rank.t}</span>
       </div>
-      <div className="mt-2 grid grid-cols-[90px_1fr_1fr] gap-2 text-[13px] font-semibold text-[#8a6a76]"><span /><span>ชาติที่ 1</span><span>ชาติที่ 2</span></div>
+      <div className="mt-2 grid grid-cols-[90px_1fr_1fr] gap-2 text-[.8125rem] font-semibold text-[#8a6a76]"><span /><span>ชาติที่ 1</span><span>ชาติที่ 2</span></div>
       {row('ฉากจบ', `${p.emoji} ${p.endingTitle}`, `${ending.emoji} ${ending.title}`)}
       {row('อายุ', `${p.age} ปี`, `${age} ปี`)}
       {row('อาชีพ', p.career ? CAREERS[p.career] : '-', s.career ? CAREERS[s.career] : '-')}

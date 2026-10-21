@@ -59,7 +59,7 @@ export function SwipeChoice({ speaker, text, choices, fill, lockOf, onPick, onLo
   return (
     <div className="flex w-full flex-col items-center gap-3" onClick={(e) => e.stopPropagation()}>
       <div
-        className="relative w-[min(88vw,400px)] touch-none select-none"
+        className="relative w-[min(88vw,25rem)] sm:w-[min(70vw,30rem)] lg:w-[min(60vw,36rem)] touch-none select-none"
         style={{
           transform: `translate(${d.x}px, ${d.y}px) rotate(${d.x / 18}deg)`,
           transition: drag ? 'none' : 'transform .25s cubic-bezier(.2,.8,.3,1.2)',
@@ -90,17 +90,17 @@ export function SwipeChoice({ speaker, text, choices, fill, lockOf, onPick, onLo
         </div>
       </div>
       {/* ปุ่มกดแทนการปัด */}
-      <div className="flex w-[min(96vw,520px)] items-stretch justify-center gap-2">
+      <div className="flex w-[min(96vw,32.5rem)] sm:w-[min(80vw,36rem)] lg:w-[min(80vw,44rem)] items-stretch justify-center gap-2">
         {DIRS.filter((dir) => byDir(dir)).map((dir) => {
           const c = byDir(dir)!
           const { icon, label } = splitIcon(fill(c.text))
           const locked = lockOf(c)
           return (
             <button key={dir} onClick={() => commit(dir)}
-              className={`popin flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-2xl px-2 py-2 text-center shadow-lg transition active:scale-95 ${dir === 'up' ? 'order-2' : dir === 'right' ? 'order-3' : 'order-1'} ${locked ? 'bg-[#3a3346]/85 text-white/60' : 'bg-white/90 text-[#4a2c38] hover:bg-white'}`}>
-              <span className={`text-2xl ${locked ? 'grayscale' : ''}`}>{locked ? '🔒' : icon}</span>
-              <span className="line-clamp-2 font-display text-[13px] leading-tight sm:text-sm">{label}</span>
-              <span className="text-[11px] text-[#c0909c]">{ARROW[dir]}</span>
+              className={`popin flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-2xl px-2 py-2 text-center shadow-lg sm:py-3 lg:gap-1 lg:py-4 transition active:scale-95 ${dir === 'up' ? 'order-2' : dir === 'right' ? 'order-3' : 'order-1'} ${locked ? 'bg-[#3a3346]/85 text-white/60' : 'bg-white/90 text-[#4a2c38] hover:bg-white'}`}>
+              <span className={`text-2xl sm:text-3xl lg:text-4xl ${locked ? 'grayscale' : ''}`}>{locked ? '🔒' : icon}</span>
+              <span className="line-clamp-2 font-display text-[.8125rem] leading-tight sm:text-base lg:text-lg">{label}</span>
+              <span className="text-[.75rem] text-[#c0909c]">{ARROW[dir]}</span>
             </button>
           )
         })}

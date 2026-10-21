@@ -150,8 +150,8 @@ export function HustleMode({ s, target, age, onDone }: { s: GameState; target: n
                   className={`popin flex flex-col items-center gap-0.5 rounded-2xl border-2 p-3 text-center transition ${lock ? 'border-transparent bg-[#eee8ec] opacity-60' : 'border-[#f6d6de] bg-[#fff8fa] hover:-translate-y-0.5 hover:border-[#e0707f] active:scale-95'}`}>
                   <span className="text-3xl">{lock ? '🔒' : j.icon}</span>
                   <span className="font-display text-sm text-[#3a2433]">{j.name}</span>
-                  <span className="text-[11px] leading-tight text-[#8a6a76]">{lock || j.desc}</span>
-                  {!lock && j.chance && <span className="rounded-full bg-[#f3eef7] px-2 text-[10px] text-[#7a5a96]">โอกาสให้ยืม ~{Math.round(j.chance(s) * 10) * 10}%</span>}
+                  <span className="text-[.75rem] leading-tight text-[#8a6a76]">{lock || j.desc}</span>
+                  {!lock && j.chance && <span className="rounded-full bg-[#f3eef7] px-2 text-[.75rem] text-[#7a5a96]">โอกาสให้ยืม ~{Math.round(j.chance(s) * 10) * 10}%</span>}
                 </button>
               )
             })}
