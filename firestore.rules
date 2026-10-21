@@ -1,0 +1,17 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // แต่ละคนอ่าน/เขียนได้เฉพาะข้อมูลของตัวเอง
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+      match /kv/{key} {
+        allow read, delete: if request.auth != null && request.auth.uid == uid;
+        allow create, update: if request.auth != null && request.auth.uid == uid
+          && request.resource.data.v is string
+          && request.resource.data.v.size() < 900000
+          && key.matches('lifepath[.].*');
+      }
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}
