@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Mitr", system-ui, sans-serif;
+  --font-body: "Sarabun", system-ui, sans-serif;
+}
+
+html, body, #root { height: 100%; margin: 0; }
+body {
+  background: #1d1a2b;
+  color: #2b2238;
+  font-family: var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+@keyframes drift { from { transform: translateX(-10%); } to { transform: translateX(110%); } }
+.cloud { animation: drift linear infinite; }
+
+@keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.bob { animation: bob 4s ease-in-out infinite; }
+
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+.fadein { animation: fadein .6s ease both; }
+
+@keyframes popin { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: none; } }
+.popin { animation: popin .35s ease both; }
+
+@keyframes toast { 0% { opacity: 0; transform: translateY(8px); } 15%, 80% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-10px); } }
+.toast { animation: toast 2.6s ease both; }
+
+@keyframes blink { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
+.blink { animation: blink 1.2s ease-in-out infinite; }
+
+@keyframes grow { from { width: 0; } to { width: 100%; } }
+
+@keyframes twinkle { 0%, 100% { opacity: .2; } 50% { opacity: 1; } }
+
+@keyframes kenburns { from { transform: scale(1.02); } to { transform: scale(1.08); } }
+.kenburns { animation: kenburns 24s ease-in-out infinite alternate; }
+
+@keyframes fxdown { from { transform: translateY(-10vh) rotate(0); opacity: 1; } to { transform: translateY(110vh) rotate(var(--r)); opacity: .9; } }
+@keyframes fxup { 0% { transform: translateY(0) scale(.6); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-90vh) scale(1.2); opacity: 0; } }
+.fx-down { position: absolute; top: 0; animation: fxdown linear both; }
+.fx-up { position: absolute; bottom: 0; animation: fxup ease-out both; }
+
+@keyframes shake { 0%,100% { transform: translate(0,0); } 15% { transform: translate(-10px, 4px); } 30% { transform: translate(9px,-5px); } 45% { transform: translate(-7px, 3px); } 60% { transform: translate(6px, -2px); } 75% { transform: translate(-3px, 1px); } }
+.shake { animation: shake .55s ease both; }
+
+@keyframes breathe { 0%,100% { transform: translateY(0) scaleY(1); } 50% { transform: translateY(-3px) scaleY(1.012); } }
+.breathe { animation: breathe 3.6s ease-in-out infinite; transform-origin: bottom center; }
+
+@keyframes hop { 0% { transform: translateY(0); } 30% { transform: translateY(-14px); } 60% { transform: translateY(0); } 80% { transform: translateY(-4px); } 100% { transform: translateY(0); } }
+.hop { animation: hop .5s ease both; }
+
+@keyframes flashred { 0% { opacity: .55; } 100% { opacity: 0; } }
+.flash-red { animation: flashred .8s ease-out both; background: #c0304a; }
+.flash-white { animation: flashred .7s ease-out both; background: #fff; }
+
+@keyframes slidedown { from { transform: translate(-50%, -20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+.slidedown { animation: slidedown .45s ease both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cloud, .bob, .blink, .kenburns, .breathe, .shake, .fx-up, .fx-down { animation: none; }
+  .fx-up, .fx-down { display: none; }
+}
+
+button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+
+/* ไอคอนอีโมจิ 3 มิติ */
+img.emo { display: inline-block; width: 1.18em; height: 1.18em; vertical-align: -0.24em; margin: 0 0.04em; object-fit: contain; user-select: none; pointer-events: none; filter: drop-shadow(0 1px 1px rgba(0,0,0,.12)); }
