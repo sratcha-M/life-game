@@ -40,7 +40,14 @@ export interface GameState {
   endAge?: number
   /** เงินสด / เงินลงทุน / หนี้ (บาท) */
   cash: number
+  /** ทรัพย์สินทั้งหมดที่ไม่ใช่เงินสด (บ้าน รถ ที่ดิน ธุรกิจ ทอง หุ้น ฯลฯ) */
   invest: number
+  /** ส่วนของ invest ที่ตั้งใจลงตลาดหุ้นเอง — ส่วนนี้เท่านั้นที่ขึ้นลงตาม SET (ส่วนอื่นโตช้า ๆ คงที่) */
+  stocks?: number
+  /** เงินต้นที่ลงหุ้นไป (ลดตามสัดส่วนเมื่อขายออก) — ใช้คิดกำไร/ขาดทุน */
+  stockIn?: number
+  /** ผลตอบแทนหุ้นรายปีย้อนหลัง (เก็บ 12 ปีล่าสุดที่มีหุ้น) */
+  stockLog?: { age: number; year: number; pct: number; th?: number; world?: number }[]
   debt: number
   /** หนี้สูงสุดของรอบนี้ (รีเซ็ตเมื่อปลดหนี้หมด) — ใช้โชว์ว่าใช้หนี้คืนไปแล้วเท่าไร */
   debtMax?: number
@@ -111,6 +118,8 @@ export interface PastLife {
 export interface Fin {
   cash?: number
   invest?: number
+  /** เงินที่ลงตลาดหุ้น/กองทุนหุ้น (นับรวมใน invest ด้วย) */
+  stock?: number
   debt?: number
   cashMul?: number
   investMul?: number

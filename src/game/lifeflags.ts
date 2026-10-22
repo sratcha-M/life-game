@@ -84,7 +84,7 @@ export const FLAG_SCENES: Scene[] = [
     choices: [
       { text: '🏖️ เกษียณเร็ว', fin: { invest: 1_500_000 }, effects: { happy: 3 }, flags: ['early_retire'], memory: 'เงินออมทบต้นทำให้เกษียณเร็วได้',
         result: [{ text: 'อายุ 45 ก็มีอิสรภาพทางการเงินแล้ว' }] },
-      { text: '📈 ลงทุนต่อ', fin: { invest: 2_000_000 }, effects: { money: 1 }, memory: 'เงินออมตั้งแต่หนุ่มสาวงอกเงยเป็นล้าน',
+      { text: '📈 ลงทุนต่อ', fin: { stock: 2_000_000 }, effects: { money: 1 }, memory: 'เงินออมตั้งแต่หนุ่มสาวงอกเงยเป็นล้าน',
         result: [{ text: 'ตัวเองตอนอายุ 23 คือคนที่ต้องขอบคุณที่สุด' }] },
     ],
   },

@@ -144,11 +144,12 @@ export function Character({ id, playerAge, s, expr = 'neutral', bg, dim }: {
   const sprite = spriteFor(id, age, s)
   if (sprite) {
     const sc = age < 3 ? 0.62 : age < 8 ? 0.8 : age < 13 ? 0.88 : age < 17 ? 0.96 : 1
-    // ยึดความสูงเท่ากันทุกตัว (รูปกว้าง/แคบไม่ทำให้ตัวเล็กใหญ่ต่างกัน) — ล้นกรอบด้านข้างได้
+    // ยึดความสูงเท่ากันทุกตัว (รูปกว้าง/แคบไม่ทำให้ตัวเล็กใหญ่ต่างกัน) — ล้นกรอบด้านข้างได้ไม่เกิน 35%
+    // จอแคบ (มือถือหลายตัวละคร) ล้นเกินนั้น → ย่อลงพอดีกรอบแทน (เคยล้นไม่จำกัด → 3 คนกว้างรวม ~1000px บนจอ 390px ซ้อนกันหมด)
     return (
       <div className="flex h-full w-full items-end justify-center">
         <img src={sprite.url} srcSet={sprite.hd ? `${sprite.url} 1x, ${sprite.hd} 2x` : undefined} alt={id === 'me' ? s.name : NAMES[id]} draggable={false}
-          className="h-full w-auto max-w-none shrink-0 drop-shadow-[0_8px_18px_rgba(0,0,0,.25)]"
+          className="h-full w-auto max-w-[135%] shrink-0 object-contain object-bottom drop-shadow-[0_8px_18px_rgba(0,0,0,.25)]"
           style={{
             transform: `scale(${sc})`, transformOrigin: 'bottom center',
             imageRendering: sprite.pixel ? 'pixelated' : undefined,

@@ -16,7 +16,8 @@ export const SOURCES: Record<string, Source> = {
   wb_flood: { id: 'wb_flood', org: 'World Bank', title: 'มหาอุทกภัย 2554 กระทบ 13.6 ล้านคน (≈20% ของประชากร) ความเสียหาย 1.43 ล้านล้านบาท', year: '2011', url: 'https://en.wikipedia.org/wiki/2011_Thailand_floods' },
   wb_unemp: { id: 'wb_unemp', org: 'World Bank / ILO', title: 'อัตราว่างงานของไทย 0.91% (ตกงานเฉลี่ยราว 3–4 เดือน ⇒ โอกาสถูกเลิกจ้าง ≈3% ต่อปี)', year: '2023', url: 'https://www.theglobaleconomy.com/Thailand/Unemployment_rate/' },
   wb_life: { id: 'wb_life', org: 'World Bank', title: 'อายุขัยเฉลี่ยคนไทยแรกเกิด 76.4 ปี', year: '2023', url: 'https://fred.stlouisfed.org/series/SPDYNLE00INTHA' },
-  set: { id: 'set', org: 'ตลาดหลักทรัพย์ฯ (SET)', title: 'ผลตอบแทนดัชนี SET รายปี 1994–2024: ร่วงเกิน 25% 4 ปีจาก 31 ปี, พุ่งเกิน 40% 3 ปี', year: '1994–2024', url: 'https://1stock1.com/1stock1_2626.htm' },
+  set: { id: 'set', org: 'ตลาดหลักทรัพย์ฯ (SET) + MSCI World', title: 'ผลตอบแทนดัชนี SET รายปี 1994–2024 (ใช้คู่กับ MSCI World เป็นพอร์ตไทย 50% + โลก 50%): พอร์ตร่วงเกิน 20% 2 ปีจาก 31 ปี, พุ่งเกิน 30% 3 ปี', year: '1994–2024', url: 'https://1stock1.com/1stock1_2626.htm' },
+  msci: { id: 'msci', org: 'MSCI (ผ่าน Wikipedia)', title: 'ผลตอบแทนดัชนี MSCI World รายปี 1994–2024 (รวมปันผล, USD) — หุ้นประเทศพัฒนาแล้ว ~1,400 บริษัท เฉลี่ย ≈8% ต่อปี', year: '1994–2024', url: 'https://en.wikipedia.org/wiki/MSCI_World' },
   scam: { id: 'scam', org: 'Thai PBS (ข้อมูลตำรวจไซเบอร์)', title: 'คดีหลอกลวงออนไลน์ ~990,000 คดี (มี.ค. 2565–ก.ค. 2568) ≈ 0.5% ของผู้ใหญ่ต่อปี เสียหายเฉลี่ย 37,549 บาท', year: '2022–2025', url: 'https://www.thaipbs.or.th/thevisual/en/dataviz/thescammer/' },
   wb_covid: { id: 'wb_covid', org: 'World Bank', title: 'โควิด-19: GDP ไทยปี 2563 หดตัว −6.1% · วิกฤตระดับโลกแบบนี้เกิดราว 1–2 ครั้งในชั่วชีวิต', year: '2020', url: 'https://thedocs.worldbank.org/en/doc/7f8dad261b84d44587bbf18f1e393089-0140012025/original/Thailand.pdf' },
   un_wpp: { id: 'un_wpp', org: 'UN (World Population Prospects)', title: 'ตารางชีพประเทศไทย: โอกาสเสียชีวิตรายปีตามอายุและเพศ · คนไทยรอดถึงอายุ 70 = 74.3% (ชาย 65.8%, หญิง 83.1%) · อายุขัย 77.1 ปี', year: '2024–2026', url: 'https://georank.org/life-expectancy/thailand' },
@@ -33,7 +34,20 @@ export const SET_RETURNS: { year: number; pct: number }[] = [
   [2018, -10.82], [2019, 1.02], [2020, -8.26], [2021, 14.37], [2022, 0.67], [2023, -15.15], [2024, -1.1],
 ].map(([year, pct]) => ({ year, pct }))
 
-const has = (s: GameState, f: string) => s.flags.includes(f)
+/** MSCI World รายปี (รวมปันผลแล้ว, USD — ไม่คิดค่าเงินบาท) ปีเดียวกับ SET → ปีวิกฤตโลกอย่าง 2551 ร่วงพร้อมกันเหมือนจริง */
+export const WORLD_RETURNS: Record<number, number> = {
+  1994: 5.58, 1995: 21.32, 1996: 14.0, 1997: 16.23, 1998: 24.8, 1999: 25.34, 2000: -12.92, 2001: -16.52,
+  2002: -19.54, 2003: 33.76, 2004: 15.25, 2005: 10.02, 2006: 20.65, 2007: 9.57, 2008: -40.33, 2009: 30.79,
+  2010: 12.34, 2011: -5.02, 2012: 16.54, 2013: 27.37, 2014: 5.5, 2015: -0.32, 2016: 8.15, 2017: 23.07,
+  2018: -8.2, 2019: 28.4, 2020: 16.5, 2021: 22.35, 2022: -17.73, 2023: 24.42, 2024: 19.19,
+}
+/** พอร์ตหุ้นในเกม = หุ้นไทย 50% (SET + ปันผล 3%) + หุ้นโลก 50% (MSCI World) ของ "ปีจริง" เดียวกัน */
+export const PORTFOLIO = SET_RETURNS.map(({ year, pct }) => {
+  const th = pct + 3, world = WORLD_RETURNS[year]
+  return { year, th: Math.round(th), world: Math.round(world), pct: Math.round(((th + world) / 2) * 10) / 10 }
+})
+
+const has =(s: GameState, f: string) => s.flags.includes(f)
 /** ตัวคูณตามร่างกาย: ร่างกายแข็งแรงเสี่ยงน้อยลง */
 export const bodyMul = (s: GameState) => (s.stats.body <= 2 ? 1.6 : s.stats.body <= 4 ? 1.2 : s.stats.body >= 9 ? 0.6 : s.stats.body >= 7 ? 0.8 : 1)
 export const rural = (s: GameState) => has(s, 'countryside') || s.career === 'farmer'

@@ -1,6 +1,6 @@
 import type { Fin, GameState, StatKey, Stats } from './types'
 import { careerById, SELF_EMPLOYED } from './careers'
-import { bodyMul, byAge, pct, rural, SET_RETURNS } from './realstats'
+import { bodyMul, byAge, pct, PORTFOLIO, rural } from './realstats'
 
 /**
  * ระบบการเงิน: เงินสด / เงินลงทุน / หนี้ (หน่วยบาท)
@@ -39,16 +39,22 @@ export function fmtBaht(n: number, sign = false) {
 
 /** ใช้ Fin + เงินจาก effects.money แล้วจัดการติดลบ → กลายเป็นหนี้ */
 export function applyFin(s: GameState, fin: Fin | undefined, moneyEff: number, age: number): GameState {
-  let cash = s.cash ?? 0, invest = s.invest ?? 0, debt = s.debt ?? 0
+  let cash = s.cash ?? 0, invest = s.invest ?? 0, debt = s.debt ?? 0, stocks = s.stocks ?? 0, stockIn = s.stockIn ?? 0
   if (fin?.cashMul !== undefined) cash *= fin.cashMul
-  if (fin?.investMul !== undefined) invest *= fin.investMul
+  if (fin?.investMul !== undefined) { invest *= fin.investMul; stocks *= fin.investMul; stockIn *= fin.investMul }
   cash += (fin?.cash ?? 0) + moneyEff * moneyUnit(age)
-  invest += fin?.invest ?? 0
+  invest += (fin?.invest ?? 0) + (fin?.stock ?? 0)
+  stocks += fin?.stock ?? 0
+  stockIn += fin?.stock ?? 0
   debt += fin?.debt ?? 0
   if (invest < 0) { cash += invest; invest = 0 }
+  // หุ้นถูกขาย/หายไปพร้อมทรัพย์สิน → เงินต้นลดตามสัดส่วน
+  const kept = Math.max(0, Math.min(stocks, invest))
+  if (stocks > 0 && kept < stocks) stockIn *= kept / stocks
+  stocks = kept
   if (cash < 0) { if (age >= 19) debt += -cash; cash = 0 } // เด็กไม่มีหนี้
   if (debt < 0) { cash += -debt; debt = 0 }
-  const ns = { ...s, cash: Math.round(cash), invest: Math.round(invest), debt: Math.round(debt), debtMax: debt > 0 ? Math.max(s.debtMax ?? 0, Math.round(debt)) : 0 }
+  const ns = { ...s, cash: Math.round(cash), invest: Math.round(invest), stocks: Math.round(stocks), stockIn: stocks > 0 ? Math.round(stockIn) : 0, debt: Math.round(debt), debtMax: debt > 0 ? Math.max(s.debtMax ?? 0, Math.round(debt)) : 0 }
   // ปลดหนี้หมด → บันทึกลงสมุดชีวิต
   const peak = s.debtMax || s.debt
   const history = s.debt > 0 && ns.debt === 0 && peak >= 10_000 ? [...s.history, { age, text: `🎉 ปลดหนี้หมดแล้ว! (เคยมีหนี้สูงสุด ${fmtBaht(peak)})` }] : s.history
@@ -152,8 +158,15 @@ export const SHOCKS: Shock[] = [
   { id: 'inherit', icon: '📜', text: 'ญาติห่าง ๆ ที่ไม่เคยเจอ ทิ้งมรดกไว้ให้!', min: 30, max: 65, src: 'game', basis: '0.3% ต่อปี', p: () => 0.003, effects: { happy: 2 }, fin: () => ({ cash: 1_200_000 }) },
   { id: 'reunion', icon: '🍲', text: 'ครอบครัวกลับมากินข้าวพร้อมหน้ากันครั้งแรกในรอบหลายปี', min: 20, max: 70, src: 'game', basis: '5% ต่อปี', p: () => 0.05, effects: { family: 2, happy: 1 } },
 ]
-/** ตลาดหุ้น: ใช้ผลตอบแทน SET ของปีจริงในอดีต (สุ่มปี) — ร่วง ≥25% หรือพุ่ง ≥40% จะแจ้งเป็นเหตุการณ์ */
-export const MARKET_BASIS = { src: 'set', crash: 4 / SET_RETURNS.length, boom: 3 / SET_RETURNS.length }
+/** ตลาดหุ้น: พอร์ตไทย 50% + โลก 50% ของปีจริงในอดีต (สุ่มปี) — ร่วง ≥20% หรือพุ่ง ≥30% จะแจ้งเป็นเหตุการณ์ */
+const CRASH = -20, BOOM = 30
+export const MARKET_BASIS = {
+  src: 'set', crashPct: CRASH, boomPct: BOOM,
+  crash: PORTFOLIO.filter((x) => x.pct <= CRASH).length / PORTFOLIO.length,
+  boom: PORTFOLIO.filter((x) => x.pct >= BOOM).length / PORTFOLIO.length,
+  /** ผลตอบแทนเฉลี่ยทบต้นต่อปี (%) */
+  avg: Math.round((Math.pow(PORTFOLIO.reduce((m, x) => m * (1 + x.pct / 100), 1), 1 / PORTFOLIO.length) - 1) * 1000) / 10,
+}
 
 export interface YearReport {
   years: number
@@ -174,16 +187,20 @@ export function passYears(s: GameState, from: number, to: number): { state: Game
     let cash = st.cash + income - cost
     let debt = st.debt * 1.07
     if (debt > 0 && cash > 0) { const pay = Math.min(cash, Math.max(debt * 0.12, 60_000)); cash -= pay; debt -= pay }
-    // ผลตอบแทนการลงทุน = หุ้น 60% (SET ปีจริงในอดีต + ปันผล 3%) + เงินฝาก/บ้าน 40% (3%)
-    const m = SET_RETURNS[Math.floor(rand(st.seed, 'inv' + a) * SET_RETURNS.length)]
-    const r = 0.6 * (m.pct / 100 + 0.03) + 0.4 * 0.03
-    const invest = st.invest * (1 + r)
-    if (st.invest > 50_000 && (m.pct <= -25 || m.pct >= 40) && Math.abs(invest - st.invest) >= 100_000) {
+    // ผลตอบแทน: เฉพาะเงินที่ตั้งใจลงหุ้น (stocks) = หุ้นไทย 50% + หุ้นโลก 50% ของปีจริงในอดีต (รวมปันผล)
+    // ทรัพย์สินอื่น (บ้าน ที่ดิน ธุรกิจ ทอง มรดก) โตคงที่ 3.5%/ปี — ไม่มีเหตุการณ์ "หุ้นพุ่ง/ร่วง" ถ้าไม่เคยเลือกลงทุนหุ้น
+    const m = PORTFOLIO[Math.floor(rand(st.seed, 'inv' + a) * PORTFOLIO.length)]
+    const stock0 = Math.min(st.stocks ?? 0, st.invest)
+    const stocks = stock0 * (1 + m.pct / 100)
+    const invest = (st.invest - stock0) * 1.035 + stocks
+    if (stock0 > 50_000 && (m.pct <= CRASH || m.pct >= BOOM) && Math.abs(stocks - stock0) >= 100_000) {
       const crash = m.pct < 0
-      hits.push({ icon: crash ? '🔻' : '🚀', text: crash ? `ตลาดหุ้นร่วง ${m.pct.toFixed(0)}% แบบปี ${m.year + 543}` : `หุ้นพุ่ง +${m.pct.toFixed(0)}% แบบปี ${m.year + 543}`, cash: Math.round(invest - st.invest), odds: pct(crash ? MARKET_BASIS.crash : MARKET_BASIS.boom), src: 'set', age: a + 1 })
-      st = { ...st, history: [...st.history, { age: a + 1, text: `${crash ? '🔻' : '🚀'} ${crash ? `ตลาดหุ้นร่วง ${m.pct.toFixed(0)}% แบบปี ${m.year + 543}` : `หุ้นพุ่ง +${m.pct.toFixed(0)}% แบบปี ${m.year + 543}`}` }] }
+      const text = `หุ้นที่ลงทุนไว้${crash ? 'ร่วง ' : 'พุ่ง +'}${m.pct.toFixed(0)}% แบบปี ${m.year + 543} (ไทย ${m.th > 0 ? '+' : ''}${m.th}% · โลก ${m.world > 0 ? '+' : ''}${m.world}%)`
+      hits.push({ icon: crash ? '🔻' : '🚀', text, cash: Math.round(stocks - stock0), odds: pct(crash ? MARKET_BASIS.crash : MARKET_BASIS.boom), src: 'set', age: a + 1 })
+      st = { ...st, history: [...st.history, { age: a + 1, text: `${crash ? '🔻' : '🚀'} ${text}` }] }
     }
-    st = applyFin({ ...st, cash, debt, invest }, undefined, 0, a)
+    const stockLog = stock0 > 0 ? [...(st.stockLog ?? []), { age: a + 1, year: m.year + 543, pct: Math.round(m.pct), th: m.th, world: m.world }].slice(-12) : st.stockLog
+    st = applyFin({ ...st, cash, debt, invest, stocks, stockLog }, undefined, 0, a)
     // เรื่องไม่คาดคิด: แต่ละเรื่องทอยตามโอกาสจริงของปีนั้น (เกิดได้ครั้งเดียวต่อชีวิต)
     const age = a + 1
     for (const sh of SHOCKS) {

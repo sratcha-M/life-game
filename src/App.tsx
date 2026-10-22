@@ -261,6 +261,15 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
   const [report, setReport] = useState<ReturnType<typeof passYears>['report'] | null>(null)
   const [fx, setFx] = useState<{ kind: FxKind; key: number } | null>(null)
   const [shake, setShake] = useState(0)
+  // จอสั่น: เล่นแอนิเมชันบน element เดิม (เคยใช้ key={shake} → ทั้งฉากถูกสร้างใหม่ ไอคอน/ตัวละครกะพริบ)
+  const rootRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!shake || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    rootRef.current?.animate(
+      [[0, 0], [-10, 4], [9, -5], [-7, 3], [6, -2], [-3, 1], [0, 0]].map(([x, y]) => ({ transform: `translate(${x}px, ${y}px)` })),
+      { duration: 550, easing: 'ease' },
+    )
+  }, [shake])
   const [flash, setFlash] = useState<{ c: 'red' | 'white'; key: number } | null>(null)
   const [achPop, setAchPop] = useState<Ach[]>([])
   const [music, setMusic] = useState(musicOn())
@@ -388,8 +397,9 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
     // เงินสดหมดแต่ยังมีเงินลงทุน → ขายเงินลงทุนมาใช้ก่อน (ไม่ต้องไปหาเงินทั้งที่ยังมีทรัพย์สิน)
     if (age >= 19 && ng.cash < 10_000 && ng.invest > 0) {
       const sell = Math.min(ng.invest, 100_000 - ng.cash)
-      ng = { ...ng, cash: ng.cash + sell, invest: ng.invest - sell }
-      setTimeout(() => toast(`📈 เงินสดหมด → ขายเงินลงทุน ${fmtBaht(sell)} มาใช้จ่าย (เหลือลงทุน ${fmtBaht(ng.invest)})`, false), 400)
+      const keep = 1 - sell / ng.invest
+      ng = { ...ng, cash: ng.cash + sell, invest: ng.invest - sell, stocks: Math.round((ng.stocks ?? 0) * keep), stockIn: Math.round((ng.stockIn ?? 0) * keep) }
+      setTimeout(() => toast(`📈 เงินสดหมด → ขายทรัพย์สิน ${fmtBaht(sell)} มาใช้จ่าย (เหลือ ${fmtBaht(ng.invest)})`, false), 400)
     }
     // เงินหมด → นับครั้ง (หมดตัวเกิน HUSTLE_MAX ครั้งทั้งที่ยังมีหนี้ = ล้มละลาย จบชีวิต)
     const broke = age >= 19 && ng.cash < 10_000
@@ -515,15 +525,16 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
   const many = cast.length >= 3
 
   return (
-    <div key={shake} className={`absolute inset-0 ${shake ? 'shake' : ''}`} onClick={advance}>
+    <div ref={rootRef} className="absolute inset-0" onClick={advance}>
       <div key={scene.bg} className="fadein absolute inset-0"><Background id={scene.bg} /></div>
 
       {/* ตัวละคร */}
       <div className="pointer-events-none absolute inset-x-0 bottom-[7.375rem] top-16 flex items-end justify-center sm:bottom-0">
         <div className="flex h-full max-w-full items-end justify-center">
           {cast.map((id) => (
-            <div key={`${scene.id}-${id}`} className={`popin ${many ? '-mx-[5vw] sm:-mx-6' : '-mx-[2vw] sm:mx-0'} h-[82%] max-h-[40rem] transition-transform duration-300 ${speaker === id ? 'z-10 -translate-y-2' : ''}`}
-              style={{ width: `min(${Math.floor(128 / Math.max(cast.length, 2))}vw, 52vh, 480px)` }}>
+            // มือถือ: ความกว้างรวมไม่เกินจอ (เคยกว้างรวม ~128vw → ตัวละครซ้อนกันจนอึดอัด) · จอใหญ่ถูกจำกัดด้วย 52vh/480px อยู่แล้ว
+            <div key={`${scene.id}-${id}`} className={`popin ${many ? '-mx-[2vw] sm:-mx-6' : cast.length > 1 ? '-mx-[1vw] sm:mx-0' : ''} h-[82%] max-h-[40rem] transition-transform duration-300 ${speaker === id ? 'z-10 -translate-y-2' : ''}`}
+              style={{ width: `min(${cast.length <= 1 ? 80 : Math.floor(104 / cast.length)}vw, 52vh, 480px)` }}>
               <div key={speaker === id ? `${idx}-${phase}` : 'idle'} className={`h-full w-full ${speaker === id ? 'hop' : ''}`}>
                 <div className="breathe h-full w-full" style={{ animationDelay: `${(id.charCodeAt(0) % 7) * 0.3}s` }}>
                   <Character id={id} playerAge={scene.age} s={s} bg={scene.bg}
@@ -830,11 +841,12 @@ function StatsView({ s, age }: { s: GameState; age?: number }) {
       <h3 className="mt-6 font-display text-xl text-[#5a3443]">💰 การเงิน</h3>
       <div className="mt-2 grid grid-cols-3 gap-2 text-center">
         <div className="rounded-2xl bg-[#eaf7ef] p-2"><div className="text-xs text-[#5a7a66]">เงินสด</div><div className="font-display text-[#2f8f5a]">{fmtBaht(s.cash)}</div></div>
-        <div className="rounded-2xl bg-[#eef2fb] p-2"><div className="text-xs text-[#5a6a8a]">ลงทุน/บ้าน</div><div className="font-display text-[#3a5fb0]">{fmtBaht(s.invest)}</div></div>
+        <div className="rounded-2xl bg-[#eef2fb] p-2"><div className="text-xs text-[#5a6a8a]">ทรัพย์สิน</div><div className="font-display text-[#3a5fb0]">{fmtBaht(s.invest)}</div></div>
         <div className="rounded-2xl bg-[#fdecef] p-2"><div className="text-xs text-[#8a5a66]">หนี้</div><div className="font-display text-[#c0505f]">{fmtBaht(s.debt)}</div></div>
       </div>
       {s.debt > 0 && <DebtBar s={s} />}
       <div className="mt-2 text-right text-sm text-[#5a3443]">ความมั่งคั่งสุทธิ <b className="font-display">{fmtBaht(netWorth(s))}</b></div>
+      <StockDetails s={s} />
       {age != null && salaryOf(s, age).monthly > 0 && (
         <div className="mt-2 rounded-2xl bg-[#f6f8f2] p-3 text-sm">
           <div className="flex justify-between"><span>💼 เงินเดือน ({salaryOf(s, age).label})</span><b className="font-display text-[#2f8f5a]">{salaryOf(s, age).monthly.toLocaleString('th-TH')} บ.</b></div>
@@ -869,6 +881,69 @@ function StatsView({ s, age }: { s: GameState; age?: number }) {
       {s.heirloom && <div className="mt-4 rounded-2xl bg-[#eef8f1] p-3 text-sm text-[#2f6a4a]">🎁 มรดกตระกูล: {s.heirloom}</div>}
       {s.lineage?.length ? <div className="mt-2 text-sm text-[#5a3443]">🌳 ตระกูล: {s.lineage.map((a) => `${a.emoji}${a.name}`).join(' → ')} → {s.name}</div> : null}
     </div>
+  )
+}
+
+/** 📈 รายละเอียดหุ้น (พับไว้ กดเปิดดูได้): มูลค่า/เงินต้น/กำไร · ทรัพย์สินอื่น · ผลตอบแทนรายปี · เหตุการณ์หุ้น */
+function StockDetails({ s }: { s: GameState }) {
+  const stocks = Math.min(s.stocks ?? 0, s.invest)
+  const other = s.invest - stocks
+  const cost = s.stockIn ?? 0
+  const gain = stocks - cost
+  const log = s.stockLog ?? []
+  const events = s.history.filter((h) => /^(🚀|🔻) หุ้นที่ลงทุนไว้/.test(h.text))
+  const maxPct = Math.max(30, ...log.map((x) => Math.abs(x.pct)))
+  const sign = (n: number) => (n > 0 ? '+' : '')
+  return (
+    <details className="group mt-2 rounded-2xl bg-[#eef2fb] text-sm">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 [&::-webkit-details-marker]:hidden">
+        <span className="font-display text-[#3a5fb0]">📈 รายละเอียดหุ้น</span>
+        <span className="flex items-center gap-2 whitespace-nowrap text-[.8125rem] text-[#5a6a8a]">
+          {stocks > 0 ? <>{fmtBaht(stocks)} <b className={`font-normal ${gain >= 0 ? 'text-[#2f8f5a]' : 'text-[#c0505f]'}`}>{fmtBaht(gain, true)}</b></> : 'ยังไม่ได้ลงทุน'}
+          <span className="transition-transform group-open:rotate-180">▾</span>
+        </span>
+      </summary>
+      <div className="flex flex-col gap-3 border-t border-[#3a5fb0]/10 px-3 pb-3 pt-2">
+        {stocks > 0 ? (
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-xl bg-white p-2"><div className="text-xs text-[#5a6a8a]">มูลค่าหุ้น</div><div className="font-display text-[#3a5fb0]">{fmtBaht(stocks)}</div></div>
+            <div className="rounded-xl bg-white p-2"><div className="text-xs text-[#5a6a8a]">เงินต้นที่ลงไป</div><div className="font-display text-[#3a2433]">{fmtBaht(cost)}</div></div>
+            <div className="rounded-xl bg-white p-2"><div className="text-xs text-[#5a6a8a]">กำไร/ขาดทุน</div><div className={`font-display ${gain >= 0 ? 'text-[#2f8f5a]' : 'text-[#c0505f]'}`}>{fmtBaht(gain, true)}{cost > 0 && <span className="text-xs"> ({sign(gain)}{Math.round((gain / cost) * 100)}%)</span>}</div></div>
+          </div>
+        ) : (
+          <div className="rounded-xl bg-white p-2.5 text-[#5a6a8a]">ยังไม่มีหุ้น — จะมีเมื่อเลือกทาง "ลงทุน" เอง เช่น ทำประกัน + ลงทุนกองทุน หรือเช่าบ้านแล้วเอาเงินไปลงทุน</div>
+        )}
+        <div className="flex items-center justify-between rounded-xl bg-white p-2.5">
+          <span className="text-[#5a6a8a]">🏠 ทรัพย์สินอื่น <span className="text-xs">(บ้าน ที่ดิน ธุรกิจ ทอง มรดก)</span></span>
+          <span className="whitespace-nowrap font-display text-[#3a2433]">{fmtBaht(other)} <span className="text-xs text-[#2f8f5a]">+3.5%/ปี</span></span>
+        </div>
+        {log.length > 0 && (
+          <div>
+            <div className="text-xs font-semibold text-[#5a6a8a]">ผลตอบแทนพอร์ตรายปี · ไทย 50% + โลก 50% (ล่าสุด {log.length} ปี)</div>
+            <div className="mt-1 flex flex-col gap-1.5">
+              {[...log].reverse().map((x) => (
+                <div key={x.age} className="grid grid-cols-[3.5rem_1fr_3rem] items-center gap-x-2 text-[.8125rem]">
+                  <span className="text-[#5a6a8a]">อายุ {x.age}</span>
+                  <div className="relative h-2.5 rounded-full bg-black/5">
+                    <div className={`absolute top-0 h-full rounded-full ${x.pct >= 0 ? 'left-1/2 bg-[#3fae78]' : 'right-1/2 bg-[#e0707f]'}`} style={{ width: `${(Math.abs(x.pct) / maxPct) * 50}%` }} />
+                    <div className="absolute left-1/2 top-[-2px] h-[calc(100%+4px)] w-px bg-black/20" />
+                  </div>
+                  <span className={`text-right font-display ${x.pct >= 0 ? 'text-[#2f8f5a]' : 'text-[#c0505f]'}`}>{sign(x.pct)}{x.pct}%</span>
+                  {x.th != null && x.world != null && <span className="col-start-2 text-[.6875rem] leading-tight text-[#8a8aa0]">ไทย {sign(x.th)}{x.th}% · โลก {sign(x.world)}{x.world}% · ปี {x.year}</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {events.length > 0 && (
+          <div>
+            <div className="text-xs font-semibold text-[#5a6a8a]">เหตุการณ์หุ้น</div>
+            {events.map((h, i) => <div key={i} className="mt-0.5 text-[.8125rem] text-[#3a2433]">อายุ {h.age} · {h.text}</div>)}
+          </div>
+        )}
+        <div className="text-xs leading-[1.6] text-[#8a8aa0]">ℹ️ พอร์ตหุ้น = หุ้นไทย (SET + ปันผล 3%) 50% + หุ้นโลก (MSCI World) 50% · ทุกปีสุ่ม "ปีจริง" จาก 2537–2567 ทั้งสองตลาดเป็นปีเดียวกัน · เฉลี่ย ≈{MARKET_BASIS.avg}%/ปี · ร่วงเกิน {-MARKET_BASIS.crashPct}% ≈{(MARKET_BASIS.crash * 100).toFixed(0)}% ของปี · พุ่งเกิน {MARKET_BASIS.boomPct}% ≈{(MARKET_BASIS.boom * 100).toFixed(0)}% ของปี · ถ้าเงินสดหมด เกมจะขายทรัพย์สินออกมาใช้ก่อน (หุ้นถูกขายตามสัดส่วน)</div>
+      </div>
+    </details>
   )
 }
 
@@ -1204,7 +1279,7 @@ function RealStats() {
           </div>
         ))}
         <div className="rounded-2xl bg-white p-3 ring-1 ring-black/5">
-          <div className="flex items-start gap-2"><span className="text-2xl">📈</span><div className="min-w-0 flex-1"><div className="font-display text-[#3a2433]">ผลตอบแทนการลงทุน</div><div className="text-[.8125rem] text-[#6a5a72]">ทุกปีสุ่ม "ปีจริง" จากดัชนี SET 2537–2567 (หุ้น 60% + ปันผล 3% / เงินฝาก-บ้าน 40%) · ตลาดร่วงหนัก ≈{(MARKET_BASIS.crash * 100).toFixed(0)}% ต่อปี · พุ่งแรง ≈{(MARKET_BASIS.boom * 100).toFixed(0)}% ต่อปี</div></div></div>
+          <div className="flex items-start gap-2"><span className="text-2xl">📈</span><div className="min-w-0 flex-1"><div className="font-display text-[#3a2433]">ผลตอบแทนการลงทุน</div><div className="text-[.8125rem] text-[#6a5a72]">เฉพาะเงินที่เลือกลงหุ้นเอง: พอร์ตหุ้นไทย 50% (SET + ปันผล 3%) + หุ้นโลก 50% (MSCI World) ของ "ปีจริง" เดียวกัน สุ่มจาก 2537–2567 · เฉลี่ย ≈{MARKET_BASIS.avg}%/ปี · ทรัพย์สินอื่น (บ้าน ที่ดิน ธุรกิจ ทอง) โตคงที่ 3.5%/ปี · ร่วงเกิน {-MARKET_BASIS.crashPct}% ≈{(MARKET_BASIS.crash * 100).toFixed(0)}% ต่อปี · พุ่งเกิน {MARKET_BASIS.boomPct}% ≈{(MARKET_BASIS.boom * 100).toFixed(0)}% ต่อปี</div></div></div>
         </div>
       </div>
       <h3 className="mt-5 font-display text-lg text-[#5a3443]">👵 พ่อแม่จะอยู่กับเรานานแค่ไหน</h3>
