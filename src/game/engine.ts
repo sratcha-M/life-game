@@ -10,8 +10,7 @@ import { FLAG_SCENES } from './lifeflags'
 import { FEAR_SCENES, KARMA_SCENES, ROAD_SCENES } from './karma'
 import { JOB_SCENES } from './jobs'
 import { CROSS, DAD_PASS, HEIR, JOBLESS, LATER, LOVE2, WEIRD2 } from './later'
-import { SELF_EMPLOYED } from './careers'
-import { isMonk, MONK_SCENES, monkAllows, monkBans } from './monk'
+import { MONK_SCENES, monkAllows, monkBans } from './monk'
 import BASELINE from './statBaseline.json'
 import { withTraitLines } from './personaHooks'
 import { PARENT_AGE, parentGoneAt, pct, qx } from './realstats'
@@ -107,8 +106,12 @@ function rand(seed: number, id: string) {
 
 export const getScene = (id: string) => SCENES.find((s) => s.id === id)!
 
-/** ตกงาน/เป็นนายตัวเอง/อาชีพอิสระ → ไม่มีเจ้านาย ไม่มีออฟฟิศ */
-const noBoss = (s: GameState) => s.flags.includes('fired') || s.flags.includes('own_boss') || SELF_EMPLOYED.includes(s.career ?? '')
+/** ตกงาน/เป็นนายตัวเอง → ไม่มีเจ้านาย ไม่มีออฟฟิศ */
+const noBoss = (s: GameState) => s.flags.includes('fired') || s.flags.includes('own_boss') || isMonk(s)
+/** บวช → ไม่มีแฟน ไม่มีหัวหน้า (พระไม่มีนายจ้าง) */
+const isMonk = (s: GameState) => s.career === 'monk'
+const LOVE_SCENES = new Set(['love', 'single', 'love_work', 'love_late'])
+const loveScene = (sc: Scene) => LOVE_SCENES.has(sc.id) || (Array.isArray(sc.cast) && sc.cast.includes('fah'))
 const bossScene = (sc: Scene) => (Array.isArray(sc.cast) && sc.cast.includes('boss')) || sc.bg === 'office' || sc.id.startsWith('f_hr')
 /** ฉากที่มีพ่อ/แม่อยู่ → ไม่เกิดหลังพ่อ/แม่จากไปแล้ว */
 const mentions = (sc: Scene, who: string) => {
@@ -210,7 +213,7 @@ export function applyChoice(s: GameState, c: Choice, age: number, sceneId: strin
   const ns0: GameState = applyFin({ ...s, stats }, fin, eff.money ?? 0, age)
   const ns: GameState = {
     ...ns0,
-    flags: [...new Set([...s.flags, ...flags])].filter((f) => !(c.unflags ?? []).includes(f) && !(c.career && f === 'fired')),
+    flags: [...new Set([...s.flags, ...flags])].filter((f) => !(c.unflags ?? []).includes(f) && !(c.career && f === 'fired') && !((c.career ?? s.career) === 'monk' && (f === 'partner' || f === 'mate'))),
     flagAt: { ...(s.flagAt ?? {}), ...Object.fromEntries(flags.filter((f) => !s.flags.includes(f)).map((f) => [f, age])) },
     bonds: addBonds(s.bonds, bond),
     career: c.career ?? s.career,

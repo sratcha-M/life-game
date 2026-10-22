@@ -8,7 +8,7 @@ const has = (s: GameState, f: string) => s.flags.includes(f)
 const R = (text: string, who?: CharId): Line[] => [{ text, who }]
 type Eff = Partial<Record<StatKey, number>>
 
-function job(career: string, part: 'a' | 'b', age: number, bg: BgId, cast: CharId[], title: string, line: Line | string, choices: Choice[], extra: Partial<Scene> = {}): Scene {
+function job(career: string, part: 'a' | 'b' | 'exam', age: number, bg: BgId, cast: CharId[], title: string, line: Line | string, choices: Choice[], extra: Partial<Scene> = {}): Scene {
   const flag = `ja_${career}`
   return {
     id: `job_${career}_${part}`, age, bg, cast, title: `💼 ${title}`,
@@ -286,4 +286,12 @@ export const JOB_SCENES: Scene[] = [
     { text: '🛕 บวชต่อ รับเป็นเจ้าอาวาส', when: (s) => s.gender === 'boy', effects: up('happy', 4, { social: 2 }), memory: 'ได้รับแต่งตั้งเป็นเจ้าอาวาส', result: R('วัดเล็ก ๆ กลายเป็นที่พึ่งทางใจของคนทั้งอำเภอ... ทุกเช้าบิณฑบาตผ่านหน้าบ้านแม่ แม่ใส่บาตรรอทุกวัน') },
     { text: '🤍 บวชต่อ ดูแลสำนักแม่ชี', when: (s) => s.gender === 'girl', effects: up('happy', 4, { social: 2 }), memory: 'บวชต่อ ดูแลสำนักแม่ชี', result: R('สำนักแม่ชีเล็ก ๆ กลายเป็นที่พักใจของผู้หญิงทั้งอำเภอ... แม่มาถือศีลอยู่ด้วยทุกวันพระ') },
   ], { lines: (s) => [{ who: 'mom', text: `แม่แก่แล้ว... ลูกจะ${s.gender === 'boy' ? 'สึก' : 'ลาชี'}มาดูแลแม่ หรือจะอยู่ใน${s.gender === 'boy' ? 'ผ้าเหลือง' : 'ชุดขาว'}ต่อ แม่ก็อนุโมทนาทั้งนั้นนะ` }] }),
+  job('monk', 'exam', 32, 'village', ['me'], 'สอบเลื่อนวิทยฐานะ', 'ในพรรษานี้มีสอบนักธรรม-บาลี การเลื่อนขั้นสงฆ์ต้องผ่านสนามสอบเท่านั้น ไม่มีใครเลื่อนให้ใครได้', [
+    { text: '📖 อ่านหนังสือสอบเต็มที่', effects: up('smart', 2, { happy: 1 }), flags: ['monk_exam'], memory: 'สอบนักธรรมผ่านเพื่อเลื่อนขั้นสงฆ์', result: R('นั่งท่องบาลีใต้ต้นโพธิ์ทุกคืน... ประกาศผลสอบผ่าน เลื่อนวิทยฐานะแล้ว') },
+    { text: '🧘 ปฏิบัติธรรมต่อ ไม่ลงสนามสอบ', effects: up('happy', 2), memory: 'เลือกปฏิบัติธรรมมากกว่าสอบเลื่อนขั้น', result: R('ใจสงบดี... แต่ขั้นสงฆ์ยังอยู่ที่เดิม จะเลื่อนต้องรอสอบรอบหน้า') },
+  ]),
+  job('monk', 'b', 40, 'village', ['mom', 'me'], 'ลาสิกขา', { who: 'mom', text: 'แม่แก่แล้ว... ลูกจะสึกมาดูแลแม่ หรือจะอยู่ในผ้าเหลืองต่อ แม่ก็อนุโมทนาทั้งนั้นนะ' }, [
+    { text: '🏠 ลาสิกขามาดูแลแม่', career: 'laity', effects: { family: 4, happy: 1 }, flags: ['support'], memory: 'ลาสิกขามาดูแลแม่ตอนอายุสี่สิบ', result: R('แม่ยิ้มทั้งน้ำตา ได้กินข้าวด้วยกันทุกมื้ออีกครั้ง') },
+    { text: '🛕 บวชต่อ เป็นเจ้าอาวาส', lock: (s) => (has(s, 'monk_exam') ? false : 'ต้องสอบผ่านนักธรรม/เปรียญก่อนถึงจะเลื่อนสมณศักดิ์'), effects: up('happy', 4, { social: 2 }), memory: 'ได้รับแต่งตั้งเป็นเจ้าอาวาส', result: R('วัดเล็ก ๆ กลายเป็นที่พึ่งทางใจของคนทั้งอำเภอ') },
+  ]),
 ]
