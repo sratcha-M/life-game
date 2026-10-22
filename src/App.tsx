@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Background } from './art/Background'
 import { Character, NAMES } from './art/Character'
 import {
-  applyChoice, CAREERS, fmtBaht, netWorth, passYears, married, ENDINGS, fillText, getScene, HIDDEN_LABEL, load, newGame, nextSceneId,
+  applyChoice, CAREERS, dropSave, fmtBaht, listSaves, netWorth, passYears, married, ENDINGS, fillText, getScene, HIDDEN_LABEL, newGame, nextSceneId, slotId, type SaveSlot,
   partnerName, pickEnding, statProfile, nearestEndings, endingRules, weirdRules, rememberScenes, resolveLines, save, STAT_INFO, unlockedEndings, unlockEnding, visibleChoices,
 } from './game/engine'
 import { stageOf } from './game/story'
@@ -33,36 +33,45 @@ type Screen = 'title' | 'setup' | 'play' | 'ending' | 'album' | 'reborn' | 'lega
 export default function App() {
   const [screen, setScreen] = useState<Screen>('title')
   const [game, setGame] = useState<GameState | null>(null)
-  const [saved, setSaved] = useState<GameState | null>(() => load())
+  const [saves, setSaves] = useState<SaveSlot[]>(() => listSaves())
+  const [legacyBack, setLegacyBack] = useState<Screen>('ending')
+  const latest = saves.find((x) => x.status === 'play')
 
   const start = (g: GameState) => { save(g); setGame(g); setScreen('play') }
-  const toTitle = () => { setSaved(load()); setScreen('title') }
+  const refresh = () => setSaves(listSaves())
+  const toTitle = () => { refresh(); setScreen('title') }
+  // จบชีวิตแล้วมีลูก → เก็บไว้ในเมนูตระกูล กลับมาเล่นเป็นลูกเมื่อไรก็ได้ · ไม่มีลูก → ปิดเซฟตระกูลนั้น
+  const end = (g: GameState) => { if (canPassOn(g)) save(g, 'heir'); else dropSave(slotId(g)); setGame(g); setScreen('ending') }
+  const open = (x: SaveSlot) => {
+    if (x.status === 'play') return start(x.s)
+    setGame(x.s); setLegacyBack('album'); setScreen('legacy')
+  }
   // login แล้วดึงเซฟจากคลาวด์มา → อัปเดตปุ่ม "เล่นต่อ"
-  useEffect(() => { const f = () => setSaved(load()); window.addEventListener('lifepath-cloud-merged', f); return () => window.removeEventListener('lifepath-cloud-merged', f) }, [])
+  useEffect(() => { window.addEventListener('lifepath-cloud-merged', refresh); return () => window.removeEventListener('lifepath-cloud-merged', refresh) }, [])
 
   return (
     <div className="relative h-full w-full select-none overflow-hidden font-body" onPointerDown={resumeAudio}>
       {screen === 'title' && (
         <Title
-          hasSave={!!saved}
+          latest={latest?.s ?? null}
           onNew={() => setScreen('setup')}
-          onContinue={() => saved && start(saved)}
-          onAlbum={() => setScreen('album')}
+          onContinue={() => latest && start(latest.s)}
+          onAlbum={() => { refresh(); setScreen('album') }}
         />
       )}
       {screen === 'setup' && <Setup onBack={toTitle} onStart={start} />}
       {screen === 'reborn' && game && <Reborn prev={game} onStart={start} />}
-      {screen === 'legacy' && game && <Legacy prev={game} onStart={start} onBack={() => setScreen('ending')} />}
+      {screen === 'legacy' && game && <Legacy prev={game} onStart={start} onBack={() => { if (legacyBack !== 'ending') refresh(); setScreen(legacyBack) }} />}
       {screen === 'play' && game && (
         <Play
           key={game.seed}
           initial={game}
           onQuit={toTitle}
-          onEnd={(g) => { save(null); setGame(g); setScreen('ending') }}
+          onEnd={end}
         />
       )}
-      {screen === 'ending' && game && <EndingScreen s={game} onTitle={toTitle} onAgain={() => setScreen('setup')} onReborn={() => setScreen('reborn')} onLegacy={() => setScreen('legacy')} />}
-      {screen === 'album' && <Album onBack={toTitle} />}
+      {screen === 'ending' && game && <EndingScreen s={game} onTitle={toTitle} onAgain={() => setScreen('setup')} onReborn={() => setScreen('reborn')} onLegacy={() => { setLegacyBack('ending'); setScreen('legacy') }} />}
+      {screen === 'album' && <Album saves={saves} onOpen={open} onDelete={(id) => { dropSave(id); refresh() }} onBack={toTitle} />}
     </div>
   )
 }
@@ -71,7 +80,8 @@ export default function App() {
 const whoName = (who: CharId, s: GameState) => (who === 'me' ? s.name : who === 'fah' ? partnerName(s) : NAMES[who])
 
 /* ───────────────────────── หน้าแรก ───────────────────────── */
-function Title({ hasSave, onNew, onContinue, onAlbum }: { hasSave: boolean; onNew: () => void; onContinue: () => void; onAlbum: () => void }) {
+function Title({ latest, onNew, onContinue, onAlbum }: { latest: GameState | null; onNew: () => void; onContinue: () => void; onAlbum: () => void }) {
+  const hasSave = !!latest
   useEffect(() => { playMusic('title') }, [])
   return (
     <div className="fadein absolute inset-0">
@@ -83,7 +93,7 @@ function Title({ hasSave, onNew, onContinue, onAlbum }: { hasSave: boolean; onNe
         <h1 className="font-display text-5xl font-semibold text-white drop-shadow-[0_3px_0_#e0707f] sm:text-7xl">เส้นทางชีวิต</h1>
         <p className="mt-2 max-w-md text-base text-white/90 drop-shadow sm:text-lg">ตั้งแต่แรกเกิดจนถึงวันเกิดปีที่ 70 คุณจะเติบโตเป็นใคร?</p>
         <div className="mt-6 flex w-full max-w-xs flex-col gap-3">
-          {hasSave && <Btn primary onClick={onContinue}>▶ เล่นต่อ</Btn>}
+          {latest && <Btn primary onClick={onContinue}>▶ เล่นต่อ <span className="text-base opacity-85">· {latest.name}</span></Btn>}
           <Btn primary={!hasSave} onClick={onNew}>✨ เริ่มชีวิตใหม่</Btn>
           <Btn onClick={onAlbum}>📸 อัลบั้มชีวิต & ของสะสม</Btn>
         </div>
@@ -1008,9 +1018,9 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
   return (
     <div className="fadein absolute inset-0 overflow-y-auto">
       <div className="fixed inset-0" style={{ filter: ending.kind === 'bad' ? 'grayscale(.7) brightness(.7)' : ending.kind === 'weird' ? 'hue-rotate(200deg) saturate(1.3)' : undefined }}><Background id="sky" /></div>
-      <div className="relative z-10 mx-auto flex min-h-full max-w-4xl flex-col items-center gap-3 px-4 py-6 md:flex-row md:items-start md:gap-6 md:py-12 lg:max-w-7xl">
+      <div className="relative z-10 mx-auto flex min-h-full max-w-4xl flex-col items-center gap-3 px-4 py-6 md:flex-row md:items-start md:gap-6 md:py-12 lg:max-w-7xl xl:max-w-[88rem]">
         {/* ตัวละคร: มือถืออยู่เหนือการ์ด (เล็กลง) · จอใหญ่อยู่ข้าง ๆ แบบ sticky — ขอบล่างจางหายด้วย mask */}
-        <div className="bob h-[24dvh] w-[18dvh] shrink-0 md:sticky md:top-12 md:h-[60dvh] md:w-[45dvh] lg:h-[50dvh] lg:w-[30dvh]" style={{ WebkitMaskImage: fade, maskImage: fade }}>
+        <div className="bob h-[24dvh] w-[18dvh] shrink-0 md:sticky md:top-12 md:h-[60dvh] md:w-[45dvh] lg:h-[72dvh] lg:w-[42dvh] xl:h-[78dvh] xl:w-[48dvh]" style={{ WebkitMaskImage: fade, maskImage: fade }}>
           <div className="h-full w-full" style={{ filter: art.filter }}>
             {art.src
               ? <img src={art.src} alt={s.name} className="h-full w-full object-contain object-bottom" draggable={false} />
@@ -1178,7 +1188,7 @@ function RealStats() {
   )
 }
 
-function Album({ onBack }: { onBack: () => void }) {
+function Album({ saves, onOpen, onDelete, onBack }: { saves: SaveSlot[]; onOpen: (x: SaveSlot) => void; onDelete: (id: string) => void; onBack: () => void }) {
   const [tab, setTab] = useState<'lives' | 'family' | 'endings' | 'achs' | 'unlocks' | 'secrets' | 'stats'>('lives')
   const secrets = foundSecrets()
   const [open, setOpen] = useState<LifeRecord | null>(null)
@@ -1187,8 +1197,12 @@ function Album({ onBack }: { onBack: () => void }) {
   const achs = unlockedAchs()
   const unl = unlockedIds()
   const tabs: [typeof tab, string][] = [['lives', '📸 ชีวิต'], ['family', '🌳 ตระกูล'], ['endings', '📖 ฉากจบ'], ['achs', '🏆 ถ้วย'], ['secrets', `🔐 ความลับ ${secrets.length}/${SECRETS.length}`], ['unlocks', '🎁 ปลดล็อก'], ['stats', '📚 สถิติจริง']]
+  const slotOf = new Map(saves.map((x) => [x.id, x]))
   const families = Object.values(lives.reduce<Record<string, LifeRecord[]>>((m, l) => { (m[l.lineageId] ??= []).push(l); return m }, {}))
-    .filter((f) => f.length >= 2 || f.some((l) => l.gen >= 2)).map((f) => [...f].sort((a, b) => a.gen - b.gen))
+    .filter((f) => f.length >= 2 || f.some((l) => l.gen >= 2) || slotOf.has(f[0].lineageId)).map((f) => [...f].sort((a, b) => a.gen - b.gen))
+    .sort((a, b) => Number(slotOf.has(b[0].lineageId)) - Number(slotOf.has(a[0].lineageId)))
+  // ตระกูลที่เล่นค้างแต่ยังไม่มีชีวิตไหนจบ (ยังไม่อยู่ในอัลบั้ม)
+  const ongoing = saves.filter((x) => !families.some((f) => f[0].lineageId === x.id))
   const years = lives.reduce((t, l) => t + l.age, 0)
   return (
     <div className="fadein absolute inset-0 overflow-y-auto">
@@ -1235,8 +1249,14 @@ function Album({ onBack }: { onBack: () => void }) {
           )}
 
           {tab === 'family' && (
-            families.length === 0 ? <p className="mt-6 text-center text-[#8a6a76]">ยังไม่มีตระกูล — มีลูกแล้วกด "เล่นต่อเป็นลูก" ตอนจบเกม</p> : (
+            families.length + ongoing.length === 0 ? <p className="mt-6 text-center text-[#8a6a76]">ยังไม่มีตระกูล — มีลูกแล้วกด "เล่นต่อเป็นลูก" ตอนจบเกม</p> : (
               <div className="mt-4 flex flex-col gap-4">
+                {ongoing.map((x) => (
+                  <div key={x.id} className="rounded-2xl bg-[#fdf3f5] p-3">
+                    <div className="font-display text-[#5a3443]">🌳 ตระกูลของ{x.s.lineage?.[0]?.name ?? x.s.name} · รุ่น {x.s.gen ?? 1}</div>
+                    <SlotActions x={x} onOpen={onOpen} onDelete={onDelete} />
+                  </div>
+                ))}
                 {families.map((f) => (
                   <div key={f[0].lineageId} className="rounded-2xl bg-[#eef8f1] p-3">
                     <div className="font-display text-[#2f6a4a]">🌳 ตระกูลของ{f[0].name} · {f.length} รุ่น</div>
@@ -1249,6 +1269,7 @@ function Album({ onBack }: { onBack: () => void }) {
                       ))}
                     </div>
                     <div className="mt-1 text-xs text-[#5a7a66]">ทรัพย์สินรวมทุกรุ่น {fmtBaht(f.reduce((t, l) => t + l.net, 0))}</div>
+                    {slotOf.has(f[0].lineageId) && <SlotActions x={slotOf.get(f[0].lineageId)!} onOpen={onOpen} onDelete={onDelete} />}
                   </div>
                 ))}
               </div>
@@ -1404,6 +1425,29 @@ function FamilyTree({ lineage, me }: { lineage: NonNullable<GameState['lineage']
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+/* ───────────────────────── ปุ่มเล่นต่อแต่ละตระกูล (ในอัลบั้ม) ───────────────────────── */
+function SlotButton({ x, onOpen, className = '' }: { x: SaveSlot; onOpen: (x: SaveSlot) => void; className?: string }) {
+  const heir = x.status === 'heir'
+  return (
+    <button onClick={() => { sfx('whoosh'); onOpen(x) }} className={`whitespace-nowrap rounded-xl px-3 py-2 font-display text-white shadow active:scale-95 ${heir ? 'bg-[#3fae78]' : 'bg-[#e0707f]'} ${className}`}>
+      {heir ? `👶 เล่นเป็นลูก (รุ่น ${(x.s.gen ?? 1) + 1})` : `▶ เล่นต่อ · ${x.s.name}`}
+    </button>
+  )
+}
+
+/** ปุ่มเล่นต่อ + ลบเซฟของตระกูล */
+function SlotActions({ x, onOpen, onDelete }: { x: SaveSlot; onOpen: (x: SaveSlot) => void; onDelete: (id: string) => void }) {
+  const [confirm, setConfirm] = useState(false)
+  return (
+    <div className="mt-2 flex gap-2">
+      <SlotButton x={x} onOpen={onOpen} className="flex-1" />
+      {confirm
+        ? <button onClick={() => { onDelete(x.id); setConfirm(false); sfx('bad') }} className="whitespace-nowrap rounded-xl bg-[#c0505f] px-3 py-2 font-display text-sm text-white active:scale-95">ลบจริง?</button>
+        : <button onClick={() => setConfirm(true)} aria-label="ลบเซฟตระกูลนี้" className="rounded-xl border-2 border-[#e6d6dc] bg-white px-3 py-2 text-sm active:scale-95">🗑️</button>}
     </div>
   )
 }

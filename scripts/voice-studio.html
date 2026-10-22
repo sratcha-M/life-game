@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Voice Studio</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js"></script>
+<style>
+  :root { --bg: #fdf7f2; --card: #fff; --ink: #3b2a33; --mute: #8a6a76; --line: #eadbd5; --acc: #e0707f; --ok: #3fae78; --err: #d1495b; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #1d1719; --card: #2a2125; --ink: #f3e7ea; --mute: #b39aa4; --line: #44363b; } }
+  :root[data-theme="dark"] { --bg: #1d1719; --card: #2a2125; --ink: #f3e7ea; --mute: #b39aa4; --line: #44363b; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, "Noto Sans Thai", sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { margin: 0 0 4px; font-size: 22px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-top: 14px; }
+  label { display: block; font-size: 13px; color: var(--mute); margin-bottom: 4px; }
+  input, select, button { font: inherit; color: inherit; }
+  input, select { width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+  .row { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  button { padding: 8px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); cursor: pointer; }
+  button.main { background: var(--acc); border-color: var(--acc); color: #fff; }
+  button:disabled { opacity: .5; cursor: default; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td, th { padding: 5px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  .voices td:first-child { white-space: nowrap; font-weight: 600; }
+  .voices input { min-width: 0; }
+  .bar { height: 10px; border-radius: 6px; background: var(--line); overflow: hidden; margin: 10px 0 6px; }
+  .bar > div { height: 100%; width: 0; background: var(--ok); transition: width .3s; }
+  #log { max-height: 280px; overflow: auto; font-size: 12px; font-family: ui-monospace, monospace; white-space: pre-wrap; }
+  .ok { color: var(--ok); } .err { color: var(--err); } .mute { color: var(--mute); }
+  .flex { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🎙️ Voice Studio — เส้นทางชีวิต</h1>
+  <div class="mute">สร้างเสียงพากย์ของบทที่ยังไม่มีไฟล์ด้วย Gemini TTS → ตัดเสียงเงียบ → แปลง mp3 → ดาวน์โหลดเป็น <b>lifepath-voices-NN.zip</b> ทีละชุด แล้วรัน <code>bash scripts/import-voices.sh</code></div>
+
+  <div class="card">
+    <div class="row">
+      <div><label>Gemini API key (จาก aistudio.google.com เก็บไว้ในเบราว์เซอร์นี้เท่านั้น)</label><input id="key" type="password" autocomplete="off"></div>
+      <div><label>โมเดล</label><input id="model" value="gemini-2.5-flash-preview-tts"></div>
+      <div><label>เว้นระหว่างคำขอ (วินาที)</label><input id="gap" type="number" min="0" value="7"></div>
+      <div><label>ไฟล์ต่อ zip</label><input id="per" type="number" min="1" value="25"></div>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div><label>ทำเฉพาะ</label><select id="prio"><option value="1">ทำก่อน (บทเปิดฉาก)</option><option value="0">ทั้งหมด</option><option value="2">ทีหลัง (บทหลังเลือก)</option></select></div>
+      <div><label>ตัวละคร</label><select id="who"><option value="">ทุกตัว</option></select></div>
+      <div><label>ลองเสียงบท</label><input id="testId" placeholder="เช่น birth_taxi"></div>
+    </div>
+    <div class="bar"><div id="prog"></div></div>
+    <div class="flex">
+      <button class="main" id="start">▶ เริ่มสร้าง</button>
+      <button id="stop" disabled>⏸ หยุด</button>
+      <button id="test">🔈 ลองเสียง</button>
+      <button id="zip">⬇ ดาวน์โหลดที่ค้าง</button>
+      <button id="reset">ล้างประวัติว่าทำแล้ว</button>
+      <span id="stat" class="mute"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>เสียงของแต่ละตัวละคร</b> <span class="mute">(ชื่อเสียงของ Gemini + คำอธิบายน้ำเสียง แก้ได้ จำไว้ให้)</span>
+    <table class="voices"><tbody id="voices"></tbody></table>
+  </div>
+
+  <div class="card"><b>บันทึก</b><div id="log"></div></div>
+</main>
+<script>
+// ── ข้อมูลบทที่ยังไม่มีไฟล์ (สร้างโดย npm run voice-script) ──
+const TODO = /*TODO*/[]
+
+const $ = (id) => document.getElementById(id)
+const store = { get(k, d) { try { const v = localStorage.getItem('vs.' + k); return v == null ? d : JSON.parse(v) } catch { return d } }, set(k, v) { try { localStorage.setItem('vs.' + k, JSON.stringify(v)) } catch {} } }
+
+// เสียงตั้งต้น: [voiceName, น้ำเสียง]
+const DEFAULT_VOICES = {
+  narr: ['Sulafat', 'ผู้บรรยายหญิง น้ำเสียงอบอุ่น เล่าเรื่องสนุก ชัดถ้อยชัดคำ'],
+  me_baby_m: ['Puck', 'ทารกเด็กผู้ชายอายุ 2 ขวบ เสียงแหลมเล็ก พูดอ้อแอ้'],
+  me_baby_f: ['Leda', 'ทารกเด็กผู้หญิงอายุ 2 ขวบ เสียงแหลมเล็ก พูดอ้อแอ้'],
+  me_kid_m: ['Puck', 'เด็กผู้ชายอายุ 8 ขวบ เสียงใส ซุกซน'],
+  me_kid_f: ['Leda', 'เด็กผู้หญิงอายุ 8 ขวบ เสียงใส ร่าเริง'],
+  me_teen_m: ['Fenrir', 'วัยรุ่นชายอายุ 16 มีพลัง'],
+  me_teen_f: ['Zephyr', 'วัยรุ่นหญิงอายุ 16 สดใส'],
+  me_adult_m: ['Orus', 'ผู้ชายวัยทำงาน อายุ 30 น้ำเสียงหนักแน่น'],
+  me_adult_f: ['Kore', 'ผู้หญิงวัยทำงาน อายุ 30 น้ำเสียงมั่นใจ'],
+  me_old_m: ['Algenib', 'ชายชราอายุ 70 พูดช้า เสียงแหบเล็กน้อย'],
+  me_old_f: ['Gacrux', 'หญิงชราอายุ 70 พูดช้า อบอุ่น'],
+  mom: ['Achernar', 'คุณแม่อายุ 30 กว่า อ่อนโยน'],
+  dad: ['Charon', 'คุณพ่ออายุ 30 กว่า เสียงทุ้ม ใจดี'],
+  yai: ['Gacrux', 'คุณยายอายุ 60 กว่า พูดช้า ใจดี'],
+  ton_kid: ['Puck', 'เด็กผู้ชายอายุ 8 ขวบ ขี้อาย'],
+  ton_adult: ['Iapetus', 'ผู้ชายวัยทำงาน เป็นกันเอง'],
+  fah_m: ['Achird', 'ผู้ชายรุ่นเดียวกัน อบอุ่น จริงใจ'],
+  fah_f: ['Despina', 'ผู้หญิงรุ่นเดียวกัน อ่อนหวาน จริงใจ'],
+  kru: ['Vindemiatrix', 'คุณครูผู้หญิงอายุ 34 ใจดีแต่จริงจัง'],
+  boss: ['Alnilam', 'หัวหน้าผู้ชายอายุ 52 เสียงทุ้มดุ'],
+  kid: ['Leda', 'เด็กผู้หญิงอายุ 7 ขวบ เสียงใส'],
+  nong_kid: ['Leda', 'เด็กผู้หญิงอายุ 6 ขวบ เสียงแหลมเล็ก'],
+  nong_adult: ['Autonoe', 'ผู้หญิงวัยรุ่นถึงวัยทำงาน สดใส'],
+  jay_kid: ['Fenrir', 'เด็กผู้ชายวัยรุ่น ห้าว ๆ'],
+  jay_adult: ['Sadaltager', 'ผู้ชายวัยทำงาน ห้าว ๆ เป็นกันเอง'],
+  coco: ['Laomedeia', 'สัตว์เลี้ยงตัวเล็กพูดได้ เสียงแหลมน่ารัก พูดเร็ว'],
+}
+const VOICE_LABEL = { narr: 'ผู้บรรยาย', me_baby_m: 'ตัวเอก ทารก ช', me_baby_f: 'ตัวเอก ทารก ญ', me_kid_m: 'ตัวเอก เด็ก ช', me_kid_f: 'ตัวเอก เด็ก ญ', me_teen_m: 'ตัวเอก วัยรุ่น ช', me_teen_f: 'ตัวเอก วัยรุ่น ญ', me_adult_m: 'ตัวเอก ผู้ใหญ่ ช', me_adult_f: 'ตัวเอก ผู้ใหญ่ ญ', me_old_m: 'ตัวเอก แก่ ช', me_old_f: 'ตัวเอก แก่ ญ', mom: 'แม่', dad: 'พ่อ', yai: 'ยาย', ton_kid: 'ต้น (เด็ก)', ton_adult: 'ต้น (โต)', fah_m: 'ฟ้า/แฟน ชาย', fah_f: 'ฟ้า/แฟน หญิง', kru: 'ครูสมศรี', boss: 'หัวหน้า', kid: 'หลานน้ำ', nong_kid: 'น้องฝน (เด็ก)', nong_adult: 'น้องฝน (โต)', jay_kid: 'เจ (เด็ก)', jay_adult: 'เจ (โต)', coco: 'โกโก้' }
+const voices = { ...DEFAULT_VOICES, ...store.get('voices', {}) }
+
+$('voices').innerHTML = Object.keys(DEFAULT_VOICES).map((k) => `<tr><td>${VOICE_LABEL[k]}</td><td style="width:150px"><input data-k="${k}" data-i="0" value="${voices[k][0]}"></td><td><input data-k="${k}" data-i="1" value="${voices[k][1]}"></td></tr>`).join('')
+$('voices').addEventListener('input', (e) => { const { k, i } = e.target.dataset; if (!k) return; voices[k] = [...voices[k]]; voices[k][+i] = e.target.value; store.set('voices', voices) })
+
+const MOOD = { 'ดีใจ': 'ดีใจ ตื่นเต้น', 'เศร้า': 'เศร้า เสียงสั่นเล็กน้อย', 'ตกใจ': 'ตกใจ', 'โกรธ': 'โกรธ ไม่พอใจ', 'ปกติ': 'เป็นธรรมชาติ' }
+function voiceKey(j) {
+  const a = j.age, g = j.voice
+  switch (j.who) {
+    case '': return 'narr'
+    case 'me': return `me_${a < 3 ? 'baby' : a < 13 ? 'kid' : a < 19 ? 'teen' : a < 60 ? 'adult' : 'old'}_${g}`
+    case 'fah': return `fah_${g}`
+    case 'ton': return a < 19 ? 'ton_kid' : 'ton_adult'
+    case 'nong': return a < 13 ? 'nong_kid' : 'nong_adult'
+    case 'jay': return a < 19 ? 'jay_kid' : 'jay_adult'
+    default: return DEFAULT_VOICES[j.who] ? j.who : 'narr'
+  }
+}
+const prompt = (j, style) => `อ่านออกเสียงเป็นภาษาไทย สำเนียงคนไทยกรุงเทพ บทบาท: ${style} อารมณ์: ${MOOD[j.mood] || 'เป็นธรรมชาติ'} อ่านเฉพาะข้อความต่อไปนี้:\n${j.text}`
+
+// ── ตัวกรอง ──
+const whos = [...new Set(TODO.map((j) => j.who))]
+$('who').innerHTML += whos.map((w) => `<option value="${w}">${w ? (TODO.find((j) => j.who === w).whoName) : 'ผู้บรรยาย'}</option>`).join('')
+let done = new Set(store.get('done', []))
+const queue = () => TODO.filter((j) => !done.has(j.file) && ($('prio').value === '0' || String(j.prio) === $('prio').value) && ($('who').value === '' || j.who === $('who').value))
+const stat = () => { const q = queue().length; $('stat').textContent = `เหลือ ${q} ไฟล์ · ทำแล้ว ${done.size} · รอดาวน์โหลด ${pending.length}`; return q }
+;['prio', 'who'].forEach((id) => $(id).addEventListener('change', stat))
+for (const id of ['key', 'model', 'gap', 'per']) { const v = store.get(id); if (v != null) $(id).value = v; $(id).addEventListener('change', () => store.set(id, $(id).value)) }
+
+const log = (msg, cls = '') => { const d = document.createElement('div'); d.className = cls; d.textContent = msg; $('log').prepend(d) }
+
+// ── Gemini TTS ──
+async function tts(j) {
+  const [voiceName, style] = voices[voiceKey(j)]
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${$('model').value.trim()}:generateContent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': $('key').value.trim() },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt(j, style) }] }],
+      generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } } },
+    }),
+  })
+  if (!res.ok) { const e = new Error(`${res.status} ${(await res.text()).slice(0, 300)}`); e.status = res.status; throw e }
+  const data = await res.json()
+  const part = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData)
+  if (!part) throw new Error('ไม่มีเสียงในคำตอบ: ' + JSON.stringify(data).slice(0, 200))
+  const rate = +(/rate=(\d+)/.exec(part.inlineData.mimeType)?.[1] ?? 24000)
+  const bin = atob(part.inlineData.data)
+  const pcm = new Int16Array(bin.length >> 1)
+  for (let i = 0; i < pcm.length; i++) pcm[i] = (bin.charCodeAt(i * 2) | (bin.charCodeAt(i * 2 + 1) << 8)) << 16 >> 16
+  return { pcm: trim(pcm, rate), rate }
+}
+
+// ตัดเสียงเงียบหัวท้าย (เหลือขอบ 80ms)
+function trim(pcm, rate) {
+  const th = 330, pad = Math.round(rate * 0.08)
+  let a = 0, b = pcm.length - 1
+  while (a < b && Math.abs(pcm[a]) < th) a++
+  while (b > a && Math.abs(pcm[b]) < th) b--
+  return pcm.subarray(Math.max(0, a - pad), Math.min(pcm.length, b + pad))
+}
+
+function mp3(pcm, rate) {
+  const enc = new lamejs.Mp3Encoder(1, rate, 48)
+  const out = []
+  for (let i = 0; i < pcm.length; i += 1152) { const b = enc.encodeBuffer(pcm.subarray(i, i + 1152)); if (b.length) out.push(b) }
+  const end = enc.flush(); if (end.length) out.push(end)
+  return new Blob(out, { type: 'audio/mpeg' })
+}
+
+// ── ดาวน์โหลดเป็น zip ทีละชุด ──
+let pending = []
+async function flush() {
+  if (!pending.length) return
+  const n = store.get('zipNo', 0) + 1; store.set('zipNo', n)
+  const zip = new JSZip()
+  pending.forEach(([f, b]) => zip.file(f, b))
+  const blob = await zip.generateAsync({ type: 'blob' })
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `lifepath-voices-${String(n).padStart(2, '0')}.zip`; a.click()
+  log(`⬇ ${a.download} (${pending.length} ไฟล์)`, 'ok')
+  pending.forEach(([f]) => done.add(f.replace(/\.mp3$/, ''))); store.set('done', [...done])
+  pending = []; stat()
+}
+
+let running = false
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+async function run() {
+  if (!$('key').value.trim()) return alert('ใส่ API key ก่อน')
+  running = true; $('start').disabled = true; $('stop').disabled = false
+  const total = queue().length
+  let fails = 0, i = 0
+  for (const j of queue()) {
+    if (!running) break
+    if (pending.some(([f]) => f === j.file + '.mp3')) continue
+    i++
+    try {
+      const { pcm, rate } = await tts(j)
+      pending.push([j.file + '.mp3', mp3(pcm, rate)])
+      log(`✓ ${j.file} (${(pcm.length / rate).toFixed(1)}s) ${j.text.slice(0, 50)}`)
+      fails = 0
+      if (pending.length >= +$('per').value) await flush()
+    } catch (e) {
+      log(`✗ ${j.file}: ${e.message}`, 'err')
+      if (e.status === 429) { fails++; if (fails >= 4) { log('ติดโควตาบ่อยเกินไป หยุดก่อน (ลองใหม่ทีหลัง หรือเพิ่มเวลาเว้น)', 'err'); break } await sleep(30000 * fails); continue }
+      if (e.status === 400 || e.status === 401 || e.status === 403 || e.status === 404) { log('หยุด: ตรวจ API key / ชื่อโมเดล', 'err'); break }
+    }
+    $('prog').style.width = `${(i / total) * 100}%`; stat()
+    await sleep(+$('gap').value * 1000)
+  }
+  await flush()
+  running = false; $('start').disabled = false; $('stop').disabled = true
+  log(queue().length ? 'หยุดแล้ว' : '🎉 ครบแล้ว', 'ok')
+}
+$('start').onclick = run
+$('stop').onclick = () => { running = false; log('กำลังหยุดหลังไฟล์นี้...', 'mute') }
+$('zip').onclick = flush
+$('reset').onclick = () => { if (confirm('ล้างรายการที่ทำแล้วในเบราว์เซอร์นี้? (ไฟล์ที่ import เข้าเกมแล้วจะไม่อยู่ในรายการอยู่แล้ว)')) { done = new Set(); store.set('done', []); stat() } }
+$('test').onclick = async () => {
+  const id = $('testId').value.trim()
+  const j = TODO.find((x) => x.file === id || x.id === id) ?? queue()[0]
+  if (!j) return
+  try { log(`ลองเสียง ${j.file} → ${voices[voiceKey(j)][0]}`, 'mute'); const { pcm, rate } = await tts(j); new Audio(URL.createObjectURL(mp3(pcm, rate))).play() } catch (e) { log(`✗ ${e.message}`, 'err') }
+}
+stat()
+</script>
+</body>
+</html>

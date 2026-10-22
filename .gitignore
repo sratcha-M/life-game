@@ -23,3 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 .env.local
+
+# ไฟล์ที่ npm run voice-script สร้าง
+/voice-script.csv
+/voice-script.md
+/voice-studio.html

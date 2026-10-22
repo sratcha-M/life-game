@@ -11,6 +11,7 @@ import { FEAR_SCENES, KARMA_SCENES, ROAD_SCENES } from './karma'
 import { JOB_SCENES } from './jobs'
 import { CROSS, DAD_PASS, HEIR, JOBLESS, LATER, LOVE2, WEIRD2 } from './later'
 import { SELF_EMPLOYED } from './careers'
+import { isMonk, MONK_SCENES, monkAllows, monkBans } from './monk'
 import BASELINE from './statBaseline.json'
 import { withTraitLines } from './personaHooks'
 import { PARENT_AGE, parentGoneAt, pct, qx } from './realstats'
@@ -68,7 +69,7 @@ function passVariants(base: Scene, who: 'mom' | 'dad'): Scene[] {
 const MOM_PASS = DRAMA.find((sc) => sc.id === 'mom_pass')!
 const PARENT_SCENES = [...passVariants(MOM_PASS, 'mom'), ...passVariants(DAD_PASS, 'dad')]
 
-export const SCENES = [...KARMA_SCENES, ...BASE, ...EVENTS, ...LIFE, ...DRAMA.filter((sc) => sc.id !== 'mom_pass'), ...PARENT_SCENES, ...BOND_SCENES, ...CARDS, ...SECRET_SCENES, ...THREADS, ...FLAG_SCENES, ...FEAR_SCENES, ...ROAD_SCENES, ...JOB_SCENES, ...LATER, ...LOVE2, ...CROSS, ...WEIRD2, ...HEIR, ...JOBLESS]
+export const SCENES = [...KARMA_SCENES, ...BASE, ...EVENTS, ...LIFE, ...DRAMA.filter((sc) => sc.id !== 'mom_pass'), ...PARENT_SCENES, ...BOND_SCENES, ...CARDS, ...SECRET_SCENES, ...THREADS, ...FLAG_SCENES, ...FEAR_SCENES, ...ROAD_SCENES, ...JOB_SCENES, ...MONK_SCENES, ...LATER, ...LOVE2, ...CROSS, ...WEIRD2, ...HEIR, ...JOBLESS]
   .map(withTraitLines)
   .map((sc) => (BECAUSE[sc.id] && !sc.because ? { ...sc, because: BECAUSE[sc.id] } : sc))
   .map((sc) => (OPTIONAL[sc.id] !== undefined ? { ...sc, chance: OPTIONAL[sc.id] * 0.8 } : sc))
@@ -124,6 +125,8 @@ export function sceneAvailable(sc: Scene, s: GameState) {
   if (sc.when && !sc.when(s)) return false
   for (const w of PARENT_OF[sc.id] ?? []) if (sc.age >= parentGoneAt(s, w)) return false
   if (noBoss(s) && bossScene(sc) && !sc.id.startsWith('heir_') && !sc.id.startsWith('job_')) return false
+  // บวชแล้ว → ไม่มีเรื่องรัก แต่งงาน หัวหน้า ลงทุน ฯลฯ เหลือแต่ฉากที่เข้ากับชีวิตนักบวช
+  if (isMonk(s) && sc.age >= (s.careerSince ?? 22) && !monkAllows(sc.id)) return false
   if (sc.force?.(s)) return true
   if (sc.chance !== undefined) {
     // ชีวิตก่อนเคยเจอแล้ว → โอกาสเกิดลดลง, ยังไม่เคยเจอ → โอกาสเพิ่มขึ้น
@@ -226,7 +229,8 @@ export function addBonds(b: Bonds | undefined, d: Bonds): Bonds {
   return o
 }
 
-export const visibleChoices = (sc: Scene, s: GameState) => (sc.choices ?? []).filter((c) => !c.when || c.when(s))
+export const visibleChoices = (sc: Scene, s: GameState) =>
+  (sc.choices ?? []).filter((c) => (!c.when || c.when(s)) && !(isMonk(s) && monkBans(sc.id, c, s)))
 
 // ───────── ฉากจบ ─────────
 export const ENDINGS: Ending[] = [
@@ -337,18 +341,38 @@ export function lastScenes(): string[] | undefined {
 export function rememberScenes(ids: string[]) {
   try { localStorage.setItem(LAST_KEY, JSON.stringify(ids.filter((i) => SCENES.find((x) => x.id === i)?.chance !== undefined))) } catch { /* ignore */ }
 }
-const SAVE_KEY = 'lifepath.save.v1'
+const SAVE_KEY = 'lifepath.save.v1' // เซฟช่องเดียวแบบเก่า — ย้ายเข้า SLOTS_KEY อัตโนมัติ
+const SLOTS_KEY = 'lifepath.families.v1'
 const ENDINGS_KEY = 'lifepath.endings.v1'
-export function save(s: GameState | null) {
-  try { s ? localStorage.setItem(SAVE_KEY, JSON.stringify(s)) : localStorage.removeItem(SAVE_KEY) } catch { /* ignore */ }
-}
-export function load(): GameState | null {
+/** เซฟแยกตามตระกูล: 'play' = กำลังเล่นค้าง · 'heir' = จบชีวิตแล้ว มีลูกรอเล่นต่อ */
+export interface SaveSlot { id: string; status: 'play' | 'heir'; at: number; s: GameState }
+export const slotId = (s: GameState) => s.lineageId ?? String(s.seed)
+const fix = (s: GameState): GameState => ({ ...s, cash: s.cash ?? 0, invest: s.invest ?? 0, debt: s.debt ?? 0, bonds: s.bonds ?? {} })
+const readSlots = (): SaveSlot[] => { try { const v = JSON.parse(localStorage.getItem(SLOTS_KEY) || '[]'); return Array.isArray(v) ? v : [] } catch { return [] } }
+const writeSlots = (xs: SaveSlot[]) => { try { localStorage.setItem(SLOTS_KEY, JSON.stringify(xs)) } catch { /* ignore */ } }
+/** ทุกตระกูลที่เล่นต่อได้ (ล่าสุดก่อน) */
+export function listSaves(): SaveSlot[] {
+  let xs = readSlots()
   try {
-    const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null')
-    if (!s || !SCENES.some((x) => x.id === s.sceneId)) return null
-    return { cash: 0, invest: 0, debt: 0, bonds: {}, ...s }
-  } catch { return null }
+    const old = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null') as GameState | null
+    if (old) {
+      if (!xs.some((x) => x.id === slotId(old))) xs = [{ id: slotId(old), status: 'play', at: Date.now(), s: old }, ...xs]
+      writeSlots(xs)
+      localStorage.removeItem(SAVE_KEY)
+    }
+  } catch { /* ignore */ }
+  return xs
+    .filter((x) => x.s && (x.status === 'heir' || SCENES.some((sc) => sc.id === x.s.sceneId)))
+    .map((x) => ({ ...x, s: fix(x.s) }))
+    .sort((a, b) => b.at - a.at)
 }
+export function save(s: GameState, status: SaveSlot['status'] = 'play') {
+  const id = slotId(s)
+  writeSlots([{ id, status, at: Date.now(), s }, ...readSlots().filter((x) => x.id !== id)])
+}
+export function dropSave(id: string) { writeSlots(readSlots().filter((x) => x.id !== id)) }
+/** ชีวิตที่เล่นค้างล่าสุด (ปุ่ม "เล่นต่อ") */
+export function load(): GameState | null { return listSaves().find((x) => x.status === 'play')?.s ?? null }
 export function unlockedEndings(): string[] {
   try { return JSON.parse(localStorage.getItem(ENDINGS_KEY) || '[]') } catch { return [] }
 }

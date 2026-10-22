@@ -57,6 +57,8 @@ export function salaryOf(s: GameState, age: number): { monthly: number; label: s
   if (age < 19) return { monthly: 0, label: '' }
   if (age < 22) return has(s, 'path_work') ? { monthly: 12_000, label: 'งานพาร์ทไทม์เต็มเวลา' } : { monthly: 2_500, label: 'งานพิเศษช่วงเรียน' }
   const c = careerById(s.career)
+  // นักบวชไม่มีเงินเดือน/ไม่เกษียณ — ปัจจัยที่ญาติโยมถวายเป็นค่ายาค่าเดินทาง
+  if (s.career === 'monk') return { monthly: c!.monthly, label: 'ปัจจัยจากญาติโยม' }
   if (age >= 60) {
     if (has(s, 'work_after_60') && c) return { monthly: Math.round(c.monthly * 0.6), label: `ทำงานต่อ (${c.name})` }
     return { monthly: c?.pension ?? 6_000, label: c?.pension ? 'บำนาญ' : 'เบี้ยยังชีพ + เงินออม' }
@@ -75,7 +77,7 @@ export function salaryOf(s: GameState, age: number): { monthly: number; label: s
 /** ค่าใช้จ่าย (บาท/เดือน) */
 export function livingCost(s: GameState, age: number) {
   if (age < 22) return 0
-  if (s.career === 'monk' && age < 60) return 2_500 // ชีวิตนักบวชเรียบง่าย
+  if (s.career === 'monk') return 2_500 // ชีวิตนักบวชเรียบง่าย อาหารจากบิณฑบาต รักษาฟรีที่ รพ.สงฆ์
   if (age >= 60) return Math.round((150_000 + (s.stats.body <= 3 ? 80_000 : 0)) / 12)
   let cost = 190_000
   if (has(s, 'spender')) cost += 110_000
@@ -191,9 +193,11 @@ export function passYears(s: GameState, from: number, to: number): { state: Game
       const prev = st
       const stats = { ...st.stats }
       for (const [k, v] of Object.entries(sh.effects ?? {})) stats[k as StatKey] = Math.max(0, stats[k as StatKey] + (v ?? 0))
-      st = applyFin({ ...st, stats, flags: [...st.flags, 'shock_' + sh.id, ...(sh.flags ?? [])], history: [...st.history, { age, text: `${sh.icon} ${sh.text}` }] }, sh.fin?.(st), 0, age)
+      // นักบวชรักษาฟรีที่ รพ.สงฆ์ / บัตรทอง
+      const free = st.career === 'monk' && ['dengue', 'carcrash', 'diabetes', 'heart', 'sick', 'depress', 'fall'].includes(sh.id)
+      st = applyFin({ ...st, stats, flags: [...st.flags, 'shock_' + sh.id, ...(sh.flags ?? [])], history: [...st.history, { age, text: `${sh.icon} ${sh.text}` }] }, free ? undefined : sh.fin?.(st), 0, age)
       const whys = (sh.why?.(age, prev) ?? []).filter((x): x is string => !!x)
-      const ins = sh.fin && ['carcrash', 'heart', 'sick', 'fall'].includes(sh.id) ? (has(prev, 'insured') ? 'มีประกัน เลยจ่ายเองแค่ส่วนน้อย' : 'ไม่มีประกัน จึงจ่ายเองเต็ม ๆ') : undefined
+      const ins = free ? 'นักบวชรักษาฟรีที่โรงพยาบาลสงฆ์' : sh.fin && ['carcrash', 'heart', 'sick', 'fall'].includes(sh.id) ? (has(prev, 'insured') ? 'มีประกัน เลยจ่ายเองแค่ส่วนน้อย' : 'ไม่มีประกัน จึงจ่ายเองเต็ม ๆ') : undefined
       const why = whys.length ? `เพราะ${whys.join(' และ')}` : sh.src === 'game' ? undefined : 'ไม่ได้มาจากการเลือกของคุณ — เป็นความเสี่ยงที่คนไทยทุกคนมีเท่ากัน'
       const why2 = [why, ins].filter(Boolean).join(' · ') || undefined
       if (why2) st = { ...st, history: st.history.map((h, i) => (i === st.history.length - 1 ? { ...h, text: `${h.text} (${why2})` } : h)) }

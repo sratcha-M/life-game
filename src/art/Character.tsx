@@ -1,9 +1,9 @@
 import type { CharId, Expr, GameState } from '../game/types'
 
-type HairStyle = 'short' | 'spiky' | 'long' | 'bob' | 'tied' | 'bun' | 'bald' | 'tuft' | 'clip'
+type HairStyle = 'short' | 'spiky' | 'long' | 'bob' | 'tied' | 'bun' | 'bald' | 'tuft' | 'clip' | 'shaved'
 type Outfit =
   | 'uniform' | 'uniformGirl' | 'shirt' | 'suit' | 'blouse' | 'onesie' | 'flower' | 'coat'
-  | 'hoodie' | 'jersey' | 'chef' | 'mohom' | 'cardigan' | 'tee' | 'jacket' | 'khaki' | 'wedding'
+  | 'hoodie' | 'jersey' | 'chef' | 'mohom' | 'cardigan' | 'tee' | 'jacket' | 'khaki' | 'wedding' | 'robe' | 'nun'
 
 interface Look {
   skin: string
@@ -40,7 +40,7 @@ const CAREER_OUTFIT: Record<string, [Outfit, string]> = {
   farmer: ['mohom', '#2f3c66'], office: ['suit', '#36405a'],
   nurse: ['coat', '#ffffff'], vet: ['coat', '#ffffff'], engineer: ['shirt', '#e8a33d'], pilot: ['suit', '#1f2d4d'],
   lawyer: ['suit', '#1c1c24'], civil: ['khaki', '#c7b48a'], police: ['khaki', '#6b5636'], actor: ['jacket', '#c0305a'],
-  streamer: ['hoodie', '#2b2b40'], trader: ['suit', '#2d4a3e'], seller: ['tee', '#ff8a5c'], rider: ['jacket', '#2fae5a'], monk: ['tee', '#e88a1a'],
+  streamer: ['hoodie', '#2b2b40'], trader: ['suit', '#2d4a3e'], seller: ['tee', '#ff8a5c'], rider: ['jacket', '#2fae5a'],
 }
 
 function lookFor(id: CharId, age: number, s: GameState, bg: string): Look {
@@ -49,6 +49,8 @@ function lookFor(id: CharId, age: number, s: GameState, bg: string): Look {
   switch (id) {
     case 'me': {
       const girl = s.gender === 'girl'
+      // พระห่มจีวรสีกรัก · แม่ชีนุ่งขาวห่มขาว — ทั้งคู่โกนผม
+      if (s.career === 'monk' && age >= 22) return { skin, hair: '#3a3330', style: 'shaved', outfit: girl ? 'nun' : 'robe', color: girl ? '#fbfaf5' : '#d9822b' }
       let outfit: Outfit = 'shirt'
       let color = girl ? '#f2a6c2' : '#7cb7e8'
       if (age < 3) { outfit = 'onesie'; color = '#ffe08a' }
@@ -113,8 +115,12 @@ const PIXEL_SPRITES = ['me_boy_elder']
 const stageKey = (age: number) => (age < 3 ? 'baby' : age < 13 ? 'kid' : age < 19 ? 'teen' : age < 60 ? 'adult' : 'elder')
 function spriteFor(id: CharId, age: number, s: GameState) {
   const st = stageKey(age)
-  const keys = id === 'me' ? [`me_${s.gender}_${st}`]
-    : id === 'fah' ? [`fah_${s.gender === 'girl' ? 'boy' : 'girl'}_${st}`, `fah_${s.gender === 'girl' ? 'boy' : 'girl'}`]
+  const other = s.gender === 'girl' ? 'boy' : 'girl'
+  const robed = id === 'me' && s.career === 'monk' && age >= 22
+  const keys = robed ? [...(st === 'elder' ? [`me_${s.gender === 'boy' ? 'boy_monk' : 'girl_nun'}_elder`] : []), `me_${s.gender === 'boy' ? 'boy_monk' : 'girl_nun'}`]
+    : id === 'me' ? [...(age >= 19 && age < 22 ? [`me_${s.gender}_uni`] : []), `me_${s.gender}_${st}`]
+    : id === 'fah' && s.flags.includes('mate') ? [`fah_mate_${other}_${st}`, `fah_mate_${other}_adult`]
+    : id === 'fah' ? [`fah_${other}_${st}`, `fah_${other}`]
     : [...(age >= (id === 'ton' ? 45 : 58) ? [`${id}_elder`] : []), `${id}_${st}`, id]
   for (const k of keys) { const url = SPRITES[`../assets/char/${k}.webp`]; if (url) return { url, pixel: PIXEL_SPRITES.includes(k) } }
   return null
@@ -133,7 +139,7 @@ export function Character({ id, playerAge, s, expr = 'neutral', bg, dim }: {
       </div>
     )
   }
-  const sprite = id === 'fah' && s.flags.includes('mate') ? null : spriteFor(id, age, s)
+  const sprite = spriteFor(id, age, s)
   if (sprite) {
     const sc = age < 3 ? 0.62 : age < 8 ? 0.8 : age < 13 ? 0.88 : age < 17 ? 0.96 : 1
     return (
@@ -282,6 +288,8 @@ function FrontHair({ style, c, cx, cy, r }: { style: HairStyle; c: string; cx: n
   switch (style) {
     case 'tuft':
       return <path d={`M${cx - 8} ${cy - r * 0.95} q-4 -26 14 -30 q-14 10 -2 22 q8 -8 4 -18`} stroke={c} strokeWidth="6" fill="none" strokeLinecap="round" />
+    case 'shaved':
+      return <path d={cap(cx, cy, r)} fill={c} opacity=".16" />
     case 'bald':
       return (
         <g fill={c}>
@@ -391,6 +399,24 @@ function Body({ outfit, color, skin, w, age }: { outfit: Outfit; color: string; 
       return <g>{base(color)}<path d={`M${150 - 26} ${top} L150 ${top + 60} L${150 + 26} ${top} Z`} fill="#e8e3d8" /><path d={`M150 ${top + 60} V400`} stroke="#999" strokeWidth="3" /><path d={`M${150 - 26} ${top} L${150 - 44} ${top + 26} M${150 + 26} ${top} L${150 + 44} ${top + 26}`} stroke="rgba(255,255,255,.3)" strokeWidth="6" /></g>
     case 'khaki':
       return <g>{base(color)}{vneck(skin, 26)}{collar(color)}<rect x={150 - w * 0.6} y={top + 50} width="28" height="22" rx="3" fill="rgba(0,0,0,.08)" /><rect x={150 + w * 0.6 - 28} y={top + 50} width="28" height="22" rx="3" fill="rgba(0,0,0,.08)" /></g>
+    case 'robe':
+      // ห่มเฉียง เปิดไหล่ขวา
+      return (
+        <g>
+          {base(skin)}
+          <path d={`M${150 - w} 400 L${150 - w} ${top + 45} Q${150 - w} ${top + 4} ${150 - w * 0.45} ${top} L${150 + 6} ${top} L${150 + w} ${top + 96} L${150 + w} 400 Z`} fill={color} stroke={ink} strokeWidth="2" />
+          <path d={`M${150 - w * 0.3} ${top + 4} L${150 + w * 0.7} ${top + 150} M${150 - w * 0.6} ${top + 40} L${150 + w * 0.2} ${top + 170}`} stroke="rgba(0,0,0,.12)" strokeWidth="4" fill="none" />
+        </g>
+      )
+    case 'nun':
+      // เสื้อขาว + สไบขาวพาดเฉียง
+      return (
+        <g>
+          {base(color)}
+          <path d={`M${150 - 30} ${top} Q150 ${top + 30} ${150 + 30} ${top} Z`} fill={skin} />
+          <path d={`M${150 - w * 0.5} ${top} L${150 - w * 0.15} ${top} L${150 + w} ${top + 120} L${150 + w} ${top + 168} Z`} fill="#ffffff" stroke={ink} strokeWidth="2" />
+        </g>
+      )
     case 'wedding':
       return (
         <g>
