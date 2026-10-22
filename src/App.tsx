@@ -100,6 +100,7 @@ function Title({ latest, onNew, onContinue, onAlbum }: { latest: GameState | nul
           <Btn onClick={onAlbum}>📸 อัลบั้มชีวิต & ของสะสม</Btn>
         </div>
       </div>
+      <div className="absolute bottom-2 right-3 z-10 text-[.6875rem] text-white/50">v{__APP_VERSION__}</div>
     </div>
   )
 }

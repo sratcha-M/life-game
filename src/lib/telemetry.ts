@@ -12,8 +12,8 @@ import { cloudDb } from './cloud'
 import { netWorth } from '../game/finance'
 import type { Ending, GameState } from '../game/types'
 
-/** เปลี่ยนทุกครั้งที่ปรับสมดุลเกม → แยกข้อมูลก่อน/หลังปรับได้ */
-export const BALANCE = '2026-10-22'
+/** เวอร์ชันเกม (package.json) → แยกข้อมูลก่อน/หลังปรับสมดุลได้ — ขึ้นเวอร์ชันทุกครั้งที่ปรับเกม */
+export const BALANCE = __APP_VERSION__
 
 const PID_KEY = 'lifepath.pid'
 const PENDING_KEY = 'lifepath.tm.pending'
