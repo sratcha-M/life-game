@@ -30,11 +30,17 @@ export function SwipeChoice({ speaker, text, choices, fill, lockOf, onPick, onLo
 
   const hover: Dir | null = gone ?? (d.y < -50 && Math.abs(d.y) > Math.abs(d.x) && choices[2] ? 'up' : d.x < -40 ? 'left' : d.x > 40 ? 'right' : null)
 
+  // เลือกได้ครั้งเดียว: แตะซ้ำระหว่างแอนิเมชันปัดออก (230ms) เคยส่ง onPick ซ้ำ → ฉากย้อนกลับ
+  const fired = useRef(false)
   const commit = (dir: Dir) => {
+    if (fired.current) return
     const c = byDir(dir)
     if (!c) return reset()
     const lock = lockOf(c)
     if (lock) { onLocked(lock); return reset() }
+    fired.current = true
+    // กันปุ่มค้าง: ถ้าผ่านไป 1.5 วิแล้วยังไม่ไปฉากถัดไป (คำสั่งถูกปฏิเสธ) → ให้เลือกใหม่ได้ (ถ้าไปต่อแล้ว component นี้ถูกถอดออกไปก่อน)
+    setTimeout(() => { fired.current = false; setGone(null); reset() }, 1500)
     setGone(dir)
     setD(dir === 'left' ? { x: -700, y: 60 } : dir === 'right' ? { x: 700, y: 60 } : { x: 0, y: -800 })
     setTimeout(() => onPick(c), 230)

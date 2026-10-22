@@ -1,4 +1,4 @@
-import { married, netWorth } from './finance'
+import { fmtBaht, married, netWorth } from './finance'
 import type { Bonds, Ending, GameState, Stats } from './types'
 import { bondOf } from './bonds'
 
@@ -49,30 +49,34 @@ export interface Dream {
   needs?: string[]
   /** ฉากจบวันเกิด 70 ที่เป็นความฝันนี้ — ถ้าเงื่อนไขครบ ฉากจบนี้ชนะฉากจบอื่น */
   ending?: string
+  /** แนวทางสั้น ๆ ว่าควรเลือกทางแบบไหน (โชว์ในเข็มทิศ) */
+  tip: string
+  /** เช็กลิสต์ของความฝันนี้ — ความฝันที่ผูกฉากจบ/ฉากจบแปลก ใช้เงื่อนไขฉากจบจาก engine แทน (คำนวณใน App) */
+  steps?: (s: GameState) => { label: string; ok: boolean }[]
 }
 /** เป้าความสุขของความฝัน "ใช้ชีวิตให้สุด" (ค่ากลางของชีวิตทั่วไปตอนจบ ~24) */
 const HAPPY_GOAL = 28
 export const DREAMS: Dream[] = [
-  { id: 'rich', icon: '💎', name: 'เศรษฐีสิบล้าน', desc: 'มีทรัพย์สินสุทธิ ฿10 ล้านขึ้นไป',
+  { id: 'rich', tip: 'ลงทุนหุ้นเมื่อมีโอกาส · อาชีพรายได้สูงหรือทำธุรกิจ · อย่าก่อหนี้เกินตัว', steps: (s) => [{ label: `💰 ทรัพย์สินสุทธิ ฿10M (ตอนนี้ ${fmtBaht(netWorth(s))})`, ok: netWorth(s) >= 10_000_000 }], icon: '💎', name: 'เศรษฐีสิบล้าน', desc: 'มีทรัพย์สินสุทธิ ฿10 ล้านขึ้นไป',
     check: (s) => netWorth(s) >= 10_000_000, progress: (s) => `${Math.max(0, Math.round(netWorth(s) / 100_000) / 10)}M / 10M` },
-  { id: 'legend', icon: '🏆', name: 'สุดยอดในอาชีพ', desc: 'ไปให้ถึงตำนานแห่งวงการ',
+  { id: 'legend', tip: 'เลือกอาชีพ แล้วทำให้ทักษะหลักของอาชีพนั้นเด่นที่สุดในชีวิต', icon: '🏆', name: 'สุดยอดในอาชีพ', desc: 'ไปให้ถึงตำนานแห่งวงการ',
     ending: 'legend', check: (_s, e) => e.id === 'legend', progress: (s) => (s.career ? 'กำลังไต่เต้า' : 'ยังไม่มีอาชีพ') },
-  { id: 'family', icon: '🏡', name: 'ครอบครัวอบอุ่น', desc: 'แต่งงาน มีลูก ไม่หย่า และครอบครัวรักกัน',
+  { id: 'family', tip: 'เปิดใจเรื่องความรัก แต่งงาน มีลูก และเลือกใช้เวลากับครอบครัว', steps: (s) => [{ label: '💍 มีคู่ชีวิตและไม่หย่า', ok: married(s) }, { label: '👶 มีลูก', ok: has(s, 'kid') }, { label: `🏠 ครอบครัว 7+ (ตอนนี้ ${s.stats.family})`, ok: s.stats.family >= 7 }], icon: '🏡', name: 'ครอบครัวอบอุ่น', desc: 'แต่งงาน มีลูก ไม่หย่า และครอบครัวรักกัน',
     check: (s) => married(s) && has(s, 'kid') && s.stats.family >= 7, progress: (s) => [married(s) ? '💍' : '○', has(s, 'kid') ? '👶' : '○', s.stats.family >= 7 ? '❤️' : '○'].join(' ') },
-  { id: 'friend', icon: '🤝', name: 'เพื่อนแท้ตลอดชีวิต', desc: 'มิตรภาพกับต้นแน่นแฟ้นจนแก่',
+  { id: 'friend', tip: 'ดีกับต้นตั้งแต่อนุบาล · อย่าทิ้งหรือหักหลังเพื่อน', steps: (s) => [{ label: `🤝 มิตรภาพกับต้น 8+ (ตอนนี้ ${s.stats.friend})`, ok: s.stats.friend >= 8 }, { label: '🚫 ไม่เคยทิ้ง/หักหลังต้น', ok: !has(s, 'betrayed') && !has(s, 'ignored_ton') }], icon: '🤝', name: 'เพื่อนแท้ตลอดชีวิต', desc: 'มิตรภาพกับต้นแน่นแฟ้นจนแก่',
     check: (s) => s.stats.friend >= 8 && !has(s, 'betrayed') && !has(s, 'ignored_ton'), progress: (s) => (has(s, 'betrayed') ? '💔 พังแล้ว' : '❤️'.repeat(Math.min(5, Math.ceil(s.stats.friend / 2))) || '○'), needs: ['kinder', 'bully', 'tonreturn'] },
-  { id: 'long', icon: '🎂', name: 'อายุยืนร้อยปี', desc: 'ร่างกายแข็งแรงและมีความสุขจนถึง 100',
+  { id: 'long', tip: 'ดูแลสุขภาพจริงจัง (ฉากตรวจสุขภาพอายุ 55) · ไม่บ้างาน · อย่าอยู่ตัวคนเดียว', icon: '🎂', name: 'อายุยืนร้อยปี', desc: 'ร่างกายแข็งแรงและมีความสุขจนถึง 100',
     ending: 'centenarian', check: (_s, e) => e.id === 'centenarian', progress: (s) => `💪${s.stats.body} 😊${s.stats.happy}`, needs: ['health'] },
-  { id: 'happy', icon: '🌈', name: 'ใช้ชีวิตให้สุด', desc: `ความสุข ${HAPPY_GOAL} ขึ้นไปตอนจบ`,
+  { id: 'happy', tip: 'เลือกทางที่ทำให้มีความสุข ทำตามฝัน และไม่ปล่อยให้เครียดสะสม', steps: (s) => [{ label: `😊 ความสุข ${HAPPY_GOAL}+ ตอนจบ (ตอนนี้ ${s.stats.happy})`, ok: s.stats.happy >= HAPPY_GOAL }], icon: '🌈', name: 'ใช้ชีวิตให้สุด', desc: `ความสุข ${HAPPY_GOAL} ขึ้นไปตอนจบ`,
     check: (s) => s.stats.happy >= HAPPY_GOAL, progress: (s) => `😊 ${s.stats.happy}/${HAPPY_GOAL}` },
-  { id: 'weird', icon: '👽', name: 'ชีวิตไม่ธรรมดา', desc: 'ได้ฉากจบแบบแปลก ๆ',
+  { id: 'weird', tip: 'เก็บหินอุกกาบาตตอนเด็ก แล้วตามเรื่องแปลก ๆ ที่เจอไปเรื่อย ๆ', icon: '👽', name: 'ชีวิตไม่ธรรมดา', desc: 'ได้ฉากจบแบบแปลก ๆ',
     check: (_s, e) => e.kind === 'weird', progress: () => '???', needs: ['meteor'] },
-  { id: 'home', icon: '🌾', name: 'กลับบ้านเกิด', desc: 'เกษียณไปใช้ชีวิตที่บ้านยาย',
+  { id: 'home', tip: 'ไปบ้านยายตอนปิดเทอม แล้วเลือกกลับบ้านเกิดตอนเกษียณ', icon: '🌾', name: 'กลับบ้านเกิด', desc: 'เกษียณไปใช้ชีวิตที่บ้านยาย',
     ending: 'home', check: (_s, e) => e.id === 'home', progress: (s) => (has(s, 'countryside') ? '🌾 เคยไปบ้านยาย' : '○'), needs: ['summer'] },
   // ── ความฝันพิเศษ (ปลดล็อก) ──
-  { id: 'dynasty', special: true, icon: '🏯', name: 'สร้างตระกูล', desc: 'มีลูก ทรัพย์สิน ฿5M+ และครอบครัวรักกัน',
+  { id: 'dynasty', tip: 'มีลูก สร้างทรัพย์สิน ฿5M และดูแลครอบครัว', steps: (s) => [{ label: '👶 มีลูก', ok: has(s, 'kid') }, { label: `💰 ทรัพย์สิน ฿5M (ตอนนี้ ${fmtBaht(netWorth(s))})`, ok: netWorth(s) >= 5_000_000 }, { label: `🏠 ครอบครัว 7+ (ตอนนี้ ${s.stats.family})`, ok: s.stats.family >= 7 }], special: true, icon: '🏯', name: 'สร้างตระกูล', desc: 'มีลูก ทรัพย์สิน ฿5M+ และครอบครัวรักกัน',
     check: (s) => has(s, 'kid') && netWorth(s) >= 5_000_000 && s.stats.family >= 7, progress: (s) => [has(s, 'kid') ? '👶' : '○', netWorth(s) >= 5_000_000 ? '💰' : '○', s.stats.family >= 7 ? '❤️' : '○'].join(' ') },
-  { id: 'bonds', special: true, icon: '🫶', name: 'สายใยไม่ขาด', desc: 'สนิทกับน้องฝน เจ และโกโก้ ทั้งสามคน (7+)',
+  { id: 'bonds', tip: 'ใช้เวลากับน้องฝน เจ และโกโก้ทุกครั้งที่มีโอกาส', steps: (s) => (['nong', 'jay', 'coco'] as const).map((b) => ({ label: `${{ nong: '👧 น้องฝน', jay: '🧑‍🎓 เจ', coco: '🐶 โกโก้' }[b]} 7+ (ตอนนี้ ${bondOf(s, b)})`, ok: bondOf(s, b) >= 7 })), special: true, icon: '🫶', name: 'สายใยไม่ขาด', desc: 'สนิทกับน้องฝน เจ และโกโก้ ทั้งสามคน (7+)',
     check: (s) => (['nong', 'jay', 'coco'] as const).every((b) => bondOf(s, b) >= 7), progress: (s) => `👧${bondOf(s, 'nong')} 🧑‍🎓${bondOf(s, 'jay')} 🐶${bondOf(s, 'coco')}`,
     needs: ['nong_born', 'nong_homework', 'jay_meet', 'jay_contest', 'coco_found', 'coco_walk', 'jay_help'] },
 ]

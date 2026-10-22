@@ -53,6 +53,8 @@ export interface GameState {
   debtMax?: number
   /** จำนวนครั้งที่หมดตัวจนต้องเข้าโหมดหาเงิน */
   hustles?: number
+  /** ช่วงหยุดคิด (อายุ 5/15/30/50/70): คำถามถึงผู้เล่นตัวจริง + คำตอบ (ว่าง = ข้าม) */
+  reflections?: { age: number; q: string; a: string }[]
   /** ความฝัน (เป้าหมายชีวิต) และไพ่ดวงชะตาตอนเกิด */
   dream?: string
   trait?: string

@@ -49,6 +49,12 @@ while (steps++ < 1800) {
     await page.getByText('เกิดใหม่! 👶').click()
     continue
   }
+  // ช่วงหยุดคิด (อายุ 5/15/30/50/70): ตอบสั้น ๆ บ้าง ข้ามบ้าง
+  if (await page.getByText('หยุดหายใจสักครู่').count()) {
+    if (shots < 6) { await page.waitForTimeout(900); await page.screenshot({ path: `${out}/r${steps}-reflect.png` }) }
+    if (Math.random() < 0.5) { await page.locator('textarea').fill('ทดสอบคำตอบ'); await page.getByRole('button', { name: /เก็บไว้/ }).click() } else await page.getByText('ข้าม', { exact: true }).click()
+    continue
+  }
   const choiceBtns = page.locator('button.popin:not([disabled])')
   if (await choiceBtns.count()) {
     if (shots < 4 && picks % 4 === 1) await page.screenshot({ path: `${out}/c${++shots}-choice.png` })
@@ -68,6 +74,14 @@ await page.waitForTimeout(500)
 await page.screenshot({ path: `${out}/99-ending.png`, fullPage: true })
 const why = page.getByText('ทำไมได้ฉากจบนี้?'); if (await why.count()) { await why.click(); await page.waitForTimeout(400); await why.scrollIntoViewIfNeeded(); await page.screenshot({ path: `${out}/97-why.png` }) }
 const pc = page.getByText('บุคลิกชีวิตของคุณ'); if (await pc.count()) { await pc.scrollIntoViewIfNeeded(); await page.waitForTimeout(500); await page.screenshot({ path: `${out}/98-persona.png` }) }
+// 🖼️ การ์ดผลชีวิต: กดแชร์ (จอคอม → เปิดหน้าดูรูป) แล้วบันทึกรูปการ์ดไว้ดู
+const cardBtn = page.getByText('แชร์การ์ดชีวิต')
+if (await cardBtn.count()) {
+  await cardBtn.scrollIntoViewIfNeeded(); await cardBtn.click(); await page.waitForTimeout(2500)
+  const b64 = await page.evaluate(async () => { const img = document.querySelector('img[alt^="การ์ดชีวิต"]'); if (!img) return null; const r = await fetch(img.src); const b = await r.blob(); return await new Promise((ok) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1]); fr.readAsDataURL(b) }) })
+  if (b64) { (await import('node:fs')).writeFileSync(`${out}/card.png`, Buffer.from(b64, 'base64')); console.log('life card saved') } else console.log('life card: no image (mobile share sheet?)')
+  await page.screenshot({ path: `${out}/96-card-modal.png` })
+}
 voiceHit = await page.evaluate(() => window.__plays).catch(() => -1)
 console.log('mp3 voice plays', voiceHit)
 console.log('steps', steps, 'picks', picks, 'errors', JSON.stringify(errors))

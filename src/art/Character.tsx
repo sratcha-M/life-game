@@ -115,7 +115,7 @@ const SPRITES = import.meta.glob('../assets/char/*.webp', { eager: true, import:
 const SPRITES_HD = import.meta.glob('../assets/char/hd/*.webp', { eager: true, import: 'default' }) as Record<string, string>
 const PIXEL_SPRITES = ['me_boy_elder']
 const stageKey = (age: number) => (age < 3 ? 'baby' : age < 13 ? 'kid' : age < 19 ? 'teen' : age < 60 ? 'adult' : 'elder')
-function spriteFor(id: CharId, age: number, s: GameState) {
+export function spriteFor(id: CharId, age: number, s: GameState) {
   const st = stageKey(age)
   const other = s.gender === 'girl' ? 'boy' : 'girl'
   const robed = id === 'me' && s.career === 'monk' && age >= 22

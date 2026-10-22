@@ -28,3 +28,8 @@ dist-ssr
 /voice-script.csv
 /voice-script.md
 /voice-studio.html
+
+# 🔑 คีย์ Firebase Admin + ข้อมูลผู้เล่นที่ export มา (ห้ามขึ้น git)
+/serviceAccount*.json
+/*-firebase-adminsdk-*.json
+/data-export/

@@ -31,6 +31,8 @@ export interface LifeRecord {
   kid: boolean
   history: { age: number; text: string }[]
   key?: string
+  /** บุคลิกตอนจบ (ใช้ทำการ์ดชีวิตย้อนหลัง) */
+  persona?: GameState['persona']
 }
 const LIVES_KEY = 'lifepath.lives.v1'
 export const lifeRecords = (): LifeRecord[] => load<LifeRecord[]>(LIVES_KEY, [])
@@ -39,7 +41,7 @@ export function recordLife(s: GameState, e: Ending, age: number, dreamOk: boolea
     id: Date.now(), at: new Date().toISOString(), name: s.name, gender: s.gender, age,
     endingId: e.id, emoji: e.emoji, title: e.title, kind: e.kind, career: s.career, net: netWorth(s),
     dream: s.dream, dreamOk, trait: s.trait, life: s.life, gen: s.gen ?? 1, lineageId: s.lineageId ?? String(s.seed),
-    bonds: s.bonds ?? {}, married, kid: s.flags.includes('kid'), history: s.history.slice(-40), key: `${s.seed}-${s.gen ?? 1}-${s.life ?? 1}`,
+    bonds: s.bonds ?? {}, married, kid: s.flags.includes('kid'), history: s.history.slice(-40), key: `${s.seed}-${s.gen ?? 1}-${s.life ?? 1}`, persona: s.persona,
   }
   if (lifeRecords().some((l) => l.key === rec.key)) return lifeRecords()
   const all = [rec, ...lifeRecords()].slice(0, 60)

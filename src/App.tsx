@@ -29,6 +29,10 @@ import { musicOn, playMusic, resumeAudio, setMusicOn, sfx, type Mood } from './l
 import { Fx, type FxKind } from './components/Fx'
 import { logEnd, logQuit, logStart, trackScene } from './lib/telemetry'
 import { FeedbackBox } from './components/FeedbackBox'
+import { ReflectPause } from './components/ReflectPause'
+import { markAsked, reflectionAt, reflectOn, resetAsked, setReflectOn } from './game/reflect'
+import { drawLifeCard, drawRecordCard } from './lib/lifeCard'
+import { ShareCard, ShareCardModal } from './components/ShareCard'
 
 type Screen = 'title' | 'setup' | 'play' | 'ending' | 'album' | 'reborn' | 'legacy'
 
@@ -238,11 +242,22 @@ function Setup({ onBack, onStart }: { onBack: () => void; onStart: (g: GameState
 }
 
 /* ───────────────────────── ตัวเกม ───────────────────────── */
-type Phase = 'card' | 'lines' | 'choice' | 'result' | 'mini' | 'hustle'
+type Phase = 'card' | 'lines' | 'choice' | 'result' | 'mini' | 'hustle' | 'reflect'
 /** ความฝันที่ผูกกับฉากจบ (ร้อยปี / ตำนาน / บ้านเกิด) → โชว์ว่าเงื่อนไขครบกี่ข้อ (ดูรายละเอียดในเข็มทิศฉากจบ) */
+/** เช็กลิสต์ของความฝันที่เลือก: ผูกฉากจบ → เงื่อนไขฉากจบ · ชีวิตแปลก → เส้นทางแปลกที่ไปไกลสุด (ข้อที่ยังไม่ได้ซ่อนเป็น ???) · อื่น ๆ → steps ของความฝัน */
+const dreamSteps = (s: GameState): { label: string; ok: boolean }[] => {
+  const d = dreamOf(s)
+  if (!d) return []
+  if (d.ending) return endingRules(s).find((x) => x.id === d.ending)?.checks ?? []
+  if (d.id === 'weird') {
+    const best = [...weirdRules(s)].sort((a, b) => b.checks.filter((c) => c.ok).length - a.checks.filter((c) => c.ok).length)[0]
+    return best ? best.checks.map((c) => ({ ok: c.ok, label: c.ok ? c.label : '??? (ตามเรื่องแปลกต่อไป)' })) : []
+  }
+  return d.steps?.(s) ?? []
+}
 const dreamChecks = (s: GameState) => {
-  const r = endingRules(s).find((x) => x.id === dreamOf(s)?.ending)
-  return r && r.checks.length > 1 ? ` · ✅ ${r.checks.filter((c) => c.ok).length}/${r.checks.length} 🧭` : ''
+  const st = dreamSteps(s)
+  return st.length > 1 ? ` · ✅ ${st.filter((c) => c.ok).length}/${st.length} 🧭` : ''
 }
 /** หมดตัวได้กี่ครั้งต่อชีวิต ก่อนล้มละลาย */
 const HUSTLE_MAX = 7
@@ -258,6 +273,8 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
   const [left, setLeft] = useState<number | null>(null)
   const [react, setReact] = useState('✨')
   const [hustle, setHustle] = useState<{ target: number; age: number; report: ReturnType<typeof passYears>['report'] | null } | null>(null)
+  const [reflect, setReflect] = useState<{ age: number; q: string; hint: string } | null>(null)
+  const [reflectAsk, setReflectAsk] = useState(reflectOn())
   const [report, setReport] = useState<ReturnType<typeof passYears>['report'] | null>(null)
   const [fx, setFx] = useState<{ kind: FxKind; key: number } | null>(null)
   const [shake, setShake] = useState(0)
@@ -384,7 +401,15 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2700)
   }
 
+  // กันเรียก enter ซ้ำจากฉากเดิม (แตะจอพร้อมกับตัวจับเวลาผลลัพธ์ไปต่อเอง → closure เก่าเขียนทับฉากใหม่)
+  const leaving = useRef('')
+  // ฉาก/ช่วงปัจจุบันล่าสุด — ให้ callback ที่มาช้า (closure เก่า) รู้ตัวว่าหมดสิทธิ์แล้ว
+  const live = useRef({ sceneId: s.sceneId, phase })
+  live.current = { sceneId: s.sceneId, phase }
   const enter = (g: GameState) => {
+    const key = `${g.sceneId}|${g.visited?.length ?? 0}`
+    if (leaving.current === key) return
+    leaving.current = key
     if (g.endId) return onEnd(g)
     const id0 = nextSceneId(g)
     if (!id0) return onEnd(g)
@@ -415,13 +440,23 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
     trackScene(ng, age)
     setLines(resolveLines(getScene(id).lines, ng))
     setIdx(0)
+    // 🕯️ ข้ามอายุ 5/15/30/50/70 → หยุดถามคำถามถึงผู้เล่น (หลังโหมดหาเงิน ถ้ามี)
+    const r = reflectionAt(ng, scene.age, age)
+    setReflect(r ? { age: r.age, q: r.q, hint: r.hint } : null)
     // เงินหมด → เข้าโหมดหาเงินก่อน
     if (broke) {
       showAch(unlockAch('broke'))
       sfx('bad')
       setHustle({ target: Math.round((Math.max(40_000, Math.min(250_000, ng.debt * 0.08)) * (ng.flags.includes('iron') ? 0.6 : 1)) / 1000) * 1000, age, report: rep.years > 0 ? rep : null })
       setPhase('hustle')
-    } else setPhase('card')
+    } else setPhase(r ? 'reflect' : 'card')
+  }
+  const endReflect = (a: string) => {
+    if (!reflect) return
+    markAsked(reflect.age)
+    setS((prev) => { const ns = { ...prev, reflections: [...(prev.reflections ?? []), { age: reflect.age, q: reflect.q, a: a.trim().slice(0, 140) }] }; save(ns); return ns })
+    setReflect(null)
+    setPhase('card')
   }
   const endHustle = (r: HustleResult) => {
     const { state } = applyChoice(s, { text: '💸 hustle', fin: { cash: r.cash, debt: r.debt }, effects: r.effects, bond: r.bond, memory: r.memory }, hustle!.age, s.sceneId)
@@ -429,14 +464,14 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
     save(state)
     setHustle(null)
     if (r.ok) showAch(unlockAch('survivor'))
-    setPhase('card')
+    setPhase(reflect ? 'reflect' : 'card')
   }
 
   const advance = () => {
     if (panel) return
     if (phase === 'lines' || phase === 'result') sfx('tap')
     if (phase === 'card') return setPhase(firstPhase())
-    if (phase === 'choice' || phase === 'mini' || phase === 'hustle') return
+    if (phase === 'choice' || phase === 'mini' || phase === 'hustle' || phase === 'reflect') return
     if (phase === 'result') return idx < lines.length - 1 ? setIdx(idx + 1) : enter(s)
     if (idx < lines.length - 1) return setIdx(idx + 1)
     if (phase === 'lines' && choices.length) return setPhase('choice')
@@ -446,6 +481,8 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
   const picking = useRef('')
   const pick = (c: Choice, timedOut = false) => {
     if (lockOf(c)) return
+    // closure เก่า (ฉาก/ช่วงที่ผ่านไปแล้ว) ห้ามเลือก — กันฉากย้อนกลับเมื่อ callback ที่หน่วงเวลาไว้มาถึงช้า
+    if (live.current.sceneId !== s.sceneId || live.current.phase !== phase) return
     if (picking.current === s.sceneId + phase) return
     picking.current = s.sceneId + phase
     setLeft(null)
@@ -690,6 +727,7 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
 
       {phase === 'mini' && scene.minigame && <MiniGame kind={scene.minigame} onDone={finishMini} />}
       {phase === 'hustle' && hustle && <HustleMode s={s} target={hustle.target} age={hustle.age} report={hustle.report} onDone={endHustle} />}
+      {phase === 'reflect' && reflect && <ReflectPause age={reflect.age} q={reflect.q} hint={reflect.hint} name={s.name} onDone={endReflect} onStop={() => { setReflectOn(false); setReflectAsk(false); endReflect('') }} />}
 
       {/* ทางเลือก */}
       {phase === 'choice' && (
@@ -752,7 +790,9 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
                 <div className="grid grid-cols-2 gap-2">
                   <button onClick={() => { setMusicOn(!music); setMusic(!music) }} className={`rounded-2xl border-2 py-3 font-display ${music ? 'border-[#e0707f] bg-[#fde8ed] text-[#c0505f]' : 'border-[#eee] text-[#8a6a76]'}`}>{music ? '🎵 เพลง: เปิด' : '🔕 เพลง: ปิด'}</button>
                   {voiceSupported() && <button onClick={() => { setVoiceOn(!voice); setVoice(!voice) }} className={`rounded-2xl border-2 py-3 font-display ${voice ? 'border-[#e0707f] bg-[#fde8ed] text-[#c0505f]' : 'border-[#eee] text-[#8a6a76]'}`}>{voice ? '🔊 พากย์: เปิด' : '🔇 พากย์: ปิด'}</button>}
+                  <button onClick={() => { const on = !reflectAsk; setReflectOn(on); if (on) resetAsked(); setReflectAsk(on) }} className={`col-span-2 rounded-2xl border-2 py-3 font-display ${reflectAsk ? 'border-[#e0707f] bg-[#fde8ed] text-[#c0505f]' : 'border-[#eee] text-[#8a6a76]'}`}>{reflectAsk ? '🕯️ คำถามหยุดคิด: เปิด' : '🕯️ คำถามหยุดคิด: ปิด'}</button>
                 </div>
+                <p className="-mt-1 text-[.75rem] text-[#a08a94]">คำถามหยุดคิดถามแต่ละข้อครั้งเดียว (อายุ 5/15/30/50/70) · เปิดใหม่ = ถามใหม่ทุกข้อ</p>
                 <Btn primary onClick={() => setPanel(null)}>เล่นต่อ</Btn>
                 <Btn onClick={onQuit}>กลับหน้าแรก</Btn>
               </div>
@@ -960,14 +1000,25 @@ function EndingCompass({ s }: { s: GameState }) {
   const { now, close } = nearestEndings(s)
   const E = (id: string) => ENDINGS.find((e) => e.id === id)!
   const weird = weirdRules(s).filter((r) => r.checks.some((c) => c.ok))
+  const dream = dreamOf(s)
+  const steps = dreamSteps(s)
   return (
     <div className="mt-5 rounded-2xl bg-[#f4f1fb] p-3">
+      {/* ⭐ แนวทางของความฝันที่เลือก (ไม่ใช่ฉากจบที่บังเอิญใกล้) */}
+      {dream && (
+        <div className="mb-3 rounded-xl bg-[#fff4d6] px-3 py-2.5">
+          <div className="font-display text-lg text-[#6a4a00]">⭐ ความฝัน: {dream.icon} {dream.name}</div>
+          <div className="text-[.8125rem] leading-[1.6] text-[#7a5a00]">💡 {dream.tip}</div>
+          {steps.length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{steps.map((c) => <span key={c.label} className={`rounded-full px-2 py-0.5 text-[.75rem] ${c.ok ? 'bg-[#eaf7ef] text-[#2f6a4a]' : 'bg-white text-[#8a6a76]'}`}>{c.ok ? '✅' : '○'} {c.label}</span>)}</div>}
+        </div>
+      )}
       <div className="font-display text-xl text-[#5a3443]">🧭 ฉากจบวันเกิด 70</div>
       <div className="text-[.8125rem] leading-[1.6] text-[#8a6a76]">ฉากจบดูจาก <b className="font-normal text-[#3a2433]">ค่าที่เด่นที่สุด 2 อันดับแรก</b> ของชีวิตนี้ (เทียบกับชีวิตทั่วไป) ไม่ใช่ตัวเลขตายตัว</div>
       <div className="mt-1 text-[.8125rem] text-[#5a3443]">ตอนนี้เด่นที่สุด: {statProfile(s).top.map((k) => { const i = STAT_INFO.find((x) => x.key === k); return i ? `${i.icon} ${i.label}` : ({ family: '🏠 ครอบครัว', friend: '🤝 เพื่อน', love: '❤️ ความรัก' } as Record<string, string>)[k] }).join(' · ')}</div>
       <div className={`mt-2 rounded-xl px-3 py-2 ${now.bad ? 'bg-[#fdecef]' : 'bg-[#eaf7ef]'}`}><span className="text-xl">{E(now.id).emoji}</span> <b className="font-display font-normal text-[#3a2433]">{E(now.id).title}</b></div>
-      {close.length > 0 && <div className="mt-2 text-xs font-semibold text-[#7a5a66]">ใกล้แล้ว:</div>}
-      {close.map((r) => (
+      {/* มีความฝันแล้ว → ไม่โชว์ฉากจบอื่นที่ "ใกล้" (เคยโผล่ร้อยปีให้ทุกคน ทำให้เข้าใจผิดว่าเป็นแนวทาง) */}
+      {!dream && close.length > 0 && <div className="mt-2 text-xs font-semibold text-[#7a5a66]">ใกล้แล้ว:</div>}
+      {!dream && close.map((r) => (
         <div key={r.id} className="mt-1 rounded-xl bg-white px-3 py-2 text-sm">
           <div>{E(r.id).emoji} <span className="font-display text-[#3a2433]">{E(r.id).title}</span></div>
           <div className="mt-0.5 flex flex-wrap gap-1">{r.checks.map((c) => <span key={c.label} className={`rounded-full px-2 py-0.5 text-[.75rem] ${c.ok ? 'bg-[#eaf7ef] text-[#2f6a4a]' : 'bg-[#f3eef0] text-[#8a6a76]'}`}>{c.ok ? '✅' : '○'} {c.label}</span>)}</div>
@@ -1178,8 +1229,12 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
               <div className="text-right"><div className="whitespace-nowrap text-[.8125rem] text-[#8a6a76]">💰 ทรัพย์สินสุทธิ</div><div className={`whitespace-nowrap font-display text-xl ${netWorth(s) < 0 ? 'text-[#c0505f]' : 'text-[#2f8f5a]'}`}>{fmtBaht(netWorth(s))}</div></div>
             </div>
 
-            <button onClick={share} className="mt-4 w-full whitespace-nowrap rounded-2xl bg-[#e0707f] px-5 py-3.5 font-display text-lg text-white shadow-lg transition hover:bg-[#d65f70] active:scale-[.98]">
-              {copied === 'copied' ? '✅ คัดลอกแล้ว — วางในแชตได้เลย' : copied === 'shared' ? '✅ แชร์แล้ว' : '📤 แชร์ผลชีวิต'}
+            <ShareCard make={() => drawLifeCard(s, ending, age, dreamOk)} fileName={`เส้นทางชีวิต-${s.name}.png`} title={`การ์ดชีวิตของ ${s.name}`}
+              text={`${ending.emoji} ${ending.title} — ชีวิตของ ${s.name} (${age} ปี) · ${location.origin}`} onShared={() => setCopied('shared')} onFail={() => void share()}
+              label={copied === 'shared' ? '✅ แชร์แล้ว' : '🖼️ แชร์การ์ดชีวิต'}
+              className="mt-4 w-full whitespace-nowrap rounded-2xl bg-[#e0707f] px-5 py-3.5 font-display text-lg text-white shadow-lg transition hover:bg-[#d65f70] active:scale-[.98] disabled:opacity-60" />
+            <button onClick={share} className="mt-2 w-full whitespace-nowrap text-center text-[.8125rem] text-[#8a6a76] underline-offset-2 hover:underline">
+              {copied === 'copied' ? '✅ คัดลอกข้อความแล้ว — วางในแชตได้เลย' : '📋 หรือคัดลอกเป็นข้อความ'}
             </button>
           </div>
 
@@ -1232,6 +1287,18 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
 
           {/* ───── รายละเอียด ───── */}
           <div className="min-w-0 rounded-3xl bg-white/95 p-5 shadow-xl sm:p-6">
+            {s.reflections?.some((r) => r.a) && (
+              <div className="mb-4 rounded-2xl bg-[#fffaf3] p-4 ring-1 ring-[#f0e2c8]">
+                <div className="font-display text-lg text-[#5a3443]">🕯️ คำตอบของคุณระหว่างทาง</div>
+                <div className="text-[.8125rem] text-[#8a6a76]">ชีวิตในเกมจบแล้ว แต่ชีวิตจริงยังเดินต่อ</div>
+                {s.reflections.filter((r) => r.a).map((r) => (
+                  <div key={r.age} className="mt-2.5">
+                    <div className="text-[.8125rem] text-[#8a6a76]">อายุ {r.age} · {r.q}</div>
+                    <div className="font-display text-[1.0625rem] leading-snug text-[#3a2433]">“{r.a}”</div>
+                  </div>
+                ))}
+              </div>
+            )}
             <EndingWhy s={s} ending={ending} />
             <RoadsNotTaken s={s} />
             {s.lineage?.length ? <FamilyTree lineage={s.lineage} me={{ name: s.name, emoji: ending.emoji, age }} /> : null}
@@ -1305,6 +1372,7 @@ function Album({ saves, onOpen, onDelete, onBack }: { saves: SaveSlot[]; onOpen:
   const [tab, setTab] = useState<'lives' | 'family' | 'endings' | 'achs' | 'unlocks' | 'secrets' | 'stats'>('lives')
   const secrets = foundSecrets()
   const [open, setOpen] = useState<LifeRecord | null>(null)
+  const [shareRec, setShareRec] = useState<LifeRecord | null>(null)
   const lives = lifeRecords()
   const got = unlockedEndings()
   const achs = unlockedAchs()
@@ -1457,6 +1525,8 @@ function Album({ saves, onOpen, onDelete, onBack }: { saves: SaveSlot[]; onOpen:
           )}
         </div>
       </div>
+      {shareRec && <ShareCardModal make={() => drawRecordCard(shareRec)} fileName={`เส้นทางชีวิต-${shareRec.name}.png`} title={`การ์ดชีวิตของ ${shareRec.name}`}
+        text={`${shareRec.emoji} ${shareRec.title} — ชีวิตของ ${shareRec.name} (${shareRec.age} ปี) · ${location.origin}`} onClose={() => setShareRec(null)} />}
       {open && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" onClick={() => setOpen(null)}>
           <div className="popin max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
@@ -1477,6 +1547,8 @@ function Album({ saves, onOpen, onDelete, onBack }: { saves: SaveSlot[]; onOpen:
                 <li key={i} className="relative mb-2"><span className="absolute -left-[1.4375rem] top-1.5 h-3 w-3 rounded-full bg-[#e0707f]" /><span className="font-display text-xs text-[#e0707f]">{h.age} ปี</span><div className="text-sm text-[#4a2c38]">{h.text}</div></li>
               ))}
             </ol>
+            {/* ปิดหน้ารายละเอียดชีวิตก่อน แล้วค่อยเปิดการ์ด (ไม่ให้หน้าต่างซ้อนกัน) */}
+            <button onClick={() => { setShareRec(open); setOpen(null) }} className="mt-4 w-full whitespace-nowrap rounded-2xl bg-[#e0707f] px-5 py-3 font-display text-lg text-white shadow-lg active:scale-[.98]">🖼️ แชร์การ์ดชีวิต</button>
             <Btn className="mt-3 w-full" onClick={() => setOpen(null)}>ปิด</Btn>
           </div>
         </div>

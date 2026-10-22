@@ -1,7 +1,7 @@
 {
   "name": "life-game",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,6 +11,7 @@
     "voice-script": "tsx scripts/voice-script.ts .",
     "sim": "tsx scripts/sim.ts",
     "calibrate": "tsx scripts/calibrate.ts",
+    "export-data": "node scripts/export-data.mjs",
     "deploy": "vite build && firebase deploy --only hosting,firestore:rules"
   },
   "dependencies": {
@@ -24,6 +25,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
+    "firebase-admin": "^13.10.0",
     "oxlint": "^1.88.0",
     "playwright": "^1.64.1",
     "tailwindcss": "^4.3.3",
