@@ -1,7 +1,7 @@
 // สร้างสคริปต์พากย์จากเนื้อเรื่องทั้งหมด: npx tsx scripts/voice-script.ts <outdir>
 // - เขียน src/game/voiceIds.json (ข้อความ → ชื่อไฟล์) ให้เกมรู้ว่าบทไหนใช้ไฟล์เสียงอะไร
 // - เขียน voice-script.csv และ voice-script.md ไว้ส่งให้นักพากย์ / โปรแกรม TTS
-import { writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { newGame, resolveLines, SCENES } from '../src/game/engine'
 import type { GameState, Line, Lines } from '../src/game/types'
 
@@ -26,9 +26,14 @@ const EXPR: Record<string, string> = { happy: 'ดีใจ', sad: 'เศร้
 type Row = { prio: number; id: string; scene: string; age: number; who: string; voiceAge: string; mood: string; text: string; note: string }
 const rows: Row[] = []
 const map: Record<string, string> = {}
+// ข้อความที่เคยมีรหัสไฟล์แล้ว ต้องใช้รหัสเดิมต่อ ไม่งั้นไฟล์เสียงที่อัดไว้จะหลุดจากบท
+const prev: Record<string, string> = existsSync('src/game/voiceIds.json') ? JSON.parse(readFileSync('src/game/voiceIds.json', 'utf8')) : {}
+const kept = new Set(Object.values(prev))
 
 function add(id: string, sceneId: string, sceneAge: number, l: Line) {
   if (map[l.text]) return
+  if (prev[l.text]) id = prev[l.text]
+  else if (kept.has(id) || Object.values(map).includes(id)) id += '_n'
   map[l.text] = id
   const who = l.who ? (l.who === 'me' ? 'ตัวเอก' : NAMES[l.who]) : 'ผู้บรรยาย'
   const a = l.who ? charAge(l.who, sceneAge) : 0
