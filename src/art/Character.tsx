@@ -113,7 +113,8 @@ const PIXEL_SPRITES = ['me_boy_elder']
 const stageKey = (age: number) => (age < 3 ? 'baby' : age < 13 ? 'kid' : age < 19 ? 'teen' : age < 60 ? 'adult' : 'elder')
 function spriteFor(id: CharId, age: number, s: GameState) {
   const st = stageKey(age)
-  const keys = id === 'me' ? [`me_${s.gender}_${st}`]
+  // ผู้เล่นที่บวช: ชายเป็นพระ หญิงเป็นแม่ชี (เปลี่ยนตามวัย) · สึกแล้วกลับเป็นสไปรต์ปกติ
+  const keys = id === 'me' ? [...(s.career === 'monk' && age >= 19 ? [`ordained_${s.gender}_${st}`] : []), `me_${s.gender}_${st}`]
     : id === 'fah' ? [`fah_${s.gender === 'girl' ? 'boy' : 'girl'}_${st}`, `fah_${s.gender === 'girl' ? 'boy' : 'girl'}`]
     : [...(age >= (id === 'ton' ? 45 : 58) ? [`${id}_elder`] : []), `${id}_${st}`, id]
   for (const k of keys) { const url = SPRITES[`../assets/char/${k}.webp`]; if (url) return { url, pixel: PIXEL_SPRITES.includes(k) } }
