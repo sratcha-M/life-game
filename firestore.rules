@@ -12,6 +12,23 @@ service cloud.firestore {
           && key.matches('lifepath[.].*');
       }
     }
+    // 📊 สถิติการเล่น + ความเห็น (ไม่ระบุตัวตน, src/lib/telemetry.ts): เพิ่มได้อย่างเดียว อ่าน/แก้/ลบจากเว็บไม่ได้ → ดูใน Firebase Console
+    function common(d) {
+      return d.pid is string && d.pid.size() <= 20 && d.v is string && d.v.size() <= 20
+        && d.mobile is bool && d.at == request.time;
+    }
+    match /plays/{id} {
+      allow create: if common(request.resource.data)
+        && request.resource.data.type in ['start', 'end', 'quit']
+        && request.resource.data.keys().hasOnly(['type', 'how', 'pid', 'v', 'mobile', 'at', 'trait', 'dream', 'gender', 'life', 'gen', 'mode', 'resumed',
+          'scene', 'age', 'career', 'scenes', 'mins', 'ending', 'kind', 'dreamOk', 'net', 'hustles', 'married', 'kid', 'lastScene']);
+    }
+    match /feedback/{id} {
+      allow create: if common(request.resource.data)
+        && request.resource.data.fun is int && request.resource.data.fun >= 0 && request.resource.data.fun <= 5
+        && request.resource.data.text is string && request.resource.data.text.size() <= 500
+        && request.resource.data.keys().hasOnly(['pid', 'v', 'mobile', 'at', 'trait', 'dream', 'gender', 'life', 'gen', 'mode', 'ending', 'age', 'fun', 'fair', 'again', 'text']);
+    }
     match /{document=**} { allow read, write: if false; }
   }
 }

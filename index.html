@@ -11,7 +11,16 @@
     <title>เส้นทางชีวิต</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- หน้าโหลด: แสดงทันทีก่อน JS มาถึง (React จะแทนที่เองเมื่อพร้อม) -->
+      <div style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:linear-gradient(#ffe3ec,#fff6e9);font-family:Mitr,Sarabun,sans-serif;color:#5a3443">
+        <div style="font-size:56px;animation:lp-bob 1.2s ease-in-out infinite">🌱</div>
+        <div style="font-size:26px">เส้นทางชีวิต</div>
+        <div style="width:160px;height:6px;border-radius:9px;background:rgba(90,52,67,.12);overflow:hidden"><div style="width:40%;height:100%;border-radius:9px;background:#e0707f;animation:lp-bar 1.1s ease-in-out infinite"></div></div>
+        <div style="font-size:14px;color:#8a6a76">กำลังเตรียมชีวิตใหม่...</div>
+      </div>
+      <style>@keyframes lp-bob{50%{transform:translateY(-8px)}}@keyframes lp-bar{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}</style>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

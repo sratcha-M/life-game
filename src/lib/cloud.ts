@@ -47,11 +47,13 @@ let state: CloudState = { user: null, sync: cloudReady ? 'idle' : 'off' }
 const subs = new Set<(s: CloudState) => void>()
 const set = (p: Partial<CloudState>) => { state = { ...state, ...p }; subs.forEach((f) => f(state)) }
 export const cloudState = () => state
+/** Firestore (null = ไม่ได้ตั้งค่า Firebase) — ใช้กับระบบเก็บสถิติการเล่น */
+export const cloudDb = () => db
 export function onCloud(f: (s: CloudState) => void) { subs.add(f); f(state); return () => { subs.delete(f) } }
 
 // ───────── ดักการเขียน localStorage เพื่ออัปโหลดอัตโนมัติ ─────────
 const PREFIX = 'lifepath.'
-const LOCAL_ONLY = new Set(['lifepath.voice', 'lifepath.music', 'lifepath.sync.meta'])
+const LOCAL_ONLY = new Set(['lifepath.voice', 'lifepath.music', 'lifepath.sync.meta', 'lifepath.pid', 'lifepath.tm.pending'])
 const META = 'lifepath.sync.meta'
 const ls = (() => { try { return window.localStorage } catch { return null } })()
 const rawSet = ls ? ls.setItem.bind(ls) : null

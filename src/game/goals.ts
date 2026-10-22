@@ -18,7 +18,7 @@ export interface Trait {
   special?: boolean
 }
 export const TRAITS: Trait[] = [
-  { id: 'genius', icon: '🧠', name: 'หัวไวตั้งแต่เกิด', desc: 'ความรู้ +3', stats: { smart: 3 } },
+  { id: 'genius', icon: '🧠', name: 'หัวไวตั้งแต่เกิด', desc: 'ความรู้ +3 · ความสุข +2', stats: { smart: 3, happy: 2 } },
   { id: 'athlete', icon: '💪', name: 'แข็งแรงเกินเด็ก', desc: 'ร่างกาย +3', stats: { body: 3 } },
   { id: 'artist', icon: '🎨', name: 'พรสวรรค์ศิลปะ', desc: 'ศิลปะ +3', stats: { art: 3 } },
   { id: 'charm', icon: '😎', name: 'เสน่ห์แรง', desc: 'เข้าสังคม +3 · ความรัก +1', stats: { social: 3, love: 1 } },
@@ -45,31 +45,40 @@ export interface Dream {
   check: (s: GameState, end: Ending) => boolean
   progress: (s: GameState) => string
   special?: boolean
+  /** ฉากประตูสู่ความฝันนี้ — เลือกฝันนี้แล้วจะได้เจอแน่นอน (ไม่ต้องลุ้นดวง) แต่ยังต้องเลือกทางให้ถูกเอง */
+  needs?: string[]
+  /** ฉากจบวันเกิด 70 ที่เป็นความฝันนี้ — ถ้าเงื่อนไขครบ ฉากจบนี้ชนะฉากจบอื่น */
+  ending?: string
 }
+/** เป้าความสุขของความฝัน "ใช้ชีวิตให้สุด" (ค่ากลางของชีวิตทั่วไปตอนจบ ~24) */
+const HAPPY_GOAL = 28
 export const DREAMS: Dream[] = [
   { id: 'rich', icon: '💎', name: 'เศรษฐีสิบล้าน', desc: 'มีทรัพย์สินสุทธิ ฿10 ล้านขึ้นไป',
     check: (s) => netWorth(s) >= 10_000_000, progress: (s) => `${Math.max(0, Math.round(netWorth(s) / 100_000) / 10)}M / 10M` },
   { id: 'legend', icon: '🏆', name: 'สุดยอดในอาชีพ', desc: 'ไปให้ถึงตำนานแห่งวงการ',
-    check: (_s, e) => e.id === 'legend', progress: (s) => (s.career ? 'กำลังไต่เต้า' : 'ยังไม่มีอาชีพ') },
+    ending: 'legend', check: (_s, e) => e.id === 'legend', progress: (s) => (s.career ? 'กำลังไต่เต้า' : 'ยังไม่มีอาชีพ') },
   { id: 'family', icon: '🏡', name: 'ครอบครัวอบอุ่น', desc: 'แต่งงาน มีลูก ไม่หย่า และครอบครัวรักกัน',
     check: (s) => married(s) && has(s, 'kid') && s.stats.family >= 7, progress: (s) => [married(s) ? '💍' : '○', has(s, 'kid') ? '👶' : '○', s.stats.family >= 7 ? '❤️' : '○'].join(' ') },
   { id: 'friend', icon: '🤝', name: 'เพื่อนแท้ตลอดชีวิต', desc: 'มิตรภาพกับต้นแน่นแฟ้นจนแก่',
-    check: (s) => s.stats.friend >= 8 && !has(s, 'betrayed') && !has(s, 'ignored_ton'), progress: (s) => (has(s, 'betrayed') ? '💔 พังแล้ว' : '❤️'.repeat(Math.min(5, Math.ceil(s.stats.friend / 2))) || '○') },
+    check: (s) => s.stats.friend >= 8 && !has(s, 'betrayed') && !has(s, 'ignored_ton'), progress: (s) => (has(s, 'betrayed') ? '💔 พังแล้ว' : '❤️'.repeat(Math.min(5, Math.ceil(s.stats.friend / 2))) || '○'), needs: ['kinder', 'bully', 'tonreturn'] },
   { id: 'long', icon: '🎂', name: 'อายุยืนร้อยปี', desc: 'ร่างกายแข็งแรงและมีความสุขจนถึง 100',
-    check: (_s, e) => e.id === 'centenarian', progress: (s) => `💪${s.stats.body} 😊${s.stats.happy}` },
-  { id: 'happy', icon: '🌈', name: 'ใช้ชีวิตให้สุด', desc: 'ความสุข 12 ขึ้นไปตอนจบ',
-    check: (s) => s.stats.happy >= 12, progress: (s) => `😊 ${s.stats.happy}/12` },
+    ending: 'centenarian', check: (_s, e) => e.id === 'centenarian', progress: (s) => `💪${s.stats.body} 😊${s.stats.happy}`, needs: ['health'] },
+  { id: 'happy', icon: '🌈', name: 'ใช้ชีวิตให้สุด', desc: `ความสุข ${HAPPY_GOAL} ขึ้นไปตอนจบ`,
+    check: (s) => s.stats.happy >= HAPPY_GOAL, progress: (s) => `😊 ${s.stats.happy}/${HAPPY_GOAL}` },
   { id: 'weird', icon: '👽', name: 'ชีวิตไม่ธรรมดา', desc: 'ได้ฉากจบแบบแปลก ๆ',
-    check: (_s, e) => e.kind === 'weird', progress: () => '???' },
+    check: (_s, e) => e.kind === 'weird', progress: () => '???', needs: ['meteor'] },
   { id: 'home', icon: '🌾', name: 'กลับบ้านเกิด', desc: 'เกษียณไปใช้ชีวิตที่บ้านยาย',
-    check: (_s, e) => e.id === 'home', progress: (s) => (has(s, 'countryside') ? '🌾 เคยไปบ้านยาย' : '○') },
+    ending: 'home', check: (_s, e) => e.id === 'home', progress: (s) => (has(s, 'countryside') ? '🌾 เคยไปบ้านยาย' : '○'), needs: ['summer'] },
   // ── ความฝันพิเศษ (ปลดล็อก) ──
   { id: 'dynasty', special: true, icon: '🏯', name: 'สร้างตระกูล', desc: 'มีลูก ทรัพย์สิน ฿5M+ และครอบครัวรักกัน',
     check: (s) => has(s, 'kid') && netWorth(s) >= 5_000_000 && s.stats.family >= 7, progress: (s) => [has(s, 'kid') ? '👶' : '○', netWorth(s) >= 5_000_000 ? '💰' : '○', s.stats.family >= 7 ? '❤️' : '○'].join(' ') },
   { id: 'bonds', special: true, icon: '🫶', name: 'สายใยไม่ขาด', desc: 'สนิทกับน้องฝน เจ และโกโก้ ทั้งสามคน (7+)',
-    check: (s) => (['nong', 'jay', 'coco'] as const).every((b) => bondOf(s, b) >= 7), progress: (s) => `👧${bondOf(s, 'nong')} 🧑‍🎓${bondOf(s, 'jay')} 🐶${bondOf(s, 'coco')}` },
+    check: (s) => (['nong', 'jay', 'coco'] as const).every((b) => bondOf(s, b) >= 7), progress: (s) => `👧${bondOf(s, 'nong')} 🧑‍🎓${bondOf(s, 'jay')} 🐶${bondOf(s, 'coco')}`,
+    needs: ['nong_born', 'nong_homework', 'jay_meet', 'jay_contest', 'coco_found', 'coco_walk', 'jay_help'] },
 ]
 export const dreamOf = (s: GameState) => DREAMS.find((d) => d.id === s.dream)
+/** ฉากนี้เป็นประตูสู่ความฝันที่เลือกไว้ไหม */
+export const dreamNeeds = (s: GameState, sceneId: string) => !!dreamOf(s)?.needs?.includes(sceneId)
 
 export function pickFew<T>(arr: T[], n: number) {
   return [...arr].sort(() => Math.random() - 0.5).slice(0, n)

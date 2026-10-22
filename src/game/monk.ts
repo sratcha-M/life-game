@@ -18,7 +18,7 @@ const MONK_OK = [
   'tonreturn', 'jay_sorry', 'bodyswap', 'ufo', 'genie', 'cat_bridge', 'coco_pup', 'ghost_dream', 'ghost_return',
   'health', 'chestpain', 'life_eyes', 'life_friend_loss', 'life_volunteer', 'life_memoir', 'life_letter', 'callcenter', 'finale',
 ]
-export const monkAllows = (id: string) => id.startsWith('monk_') || id.startsWith('job_monk_') || MONK_OK.some((k) => idIs(id, k))
+export const monkAllows = (id: string) => id.startsWith('monk_') || id.startsWith('job_monk_') || id.startsWith('long_') ||MONK_OK.some((k) => idIs(id, k))
 
 /** ทางเลือกที่ผิดศีล/วินัย → ซ่อนเมื่อเป็นนักบวช */
 const BAN: Record<string, (c: Choice, s: GameState) => boolean> = {

@@ -3,12 +3,12 @@ import { Background } from './art/Background'
 import { Character, NAMES } from './art/Character'
 import {
   applyChoice, CAREERS, dropSave, fmtBaht, listSaves, netWorth, passYears, married, ENDINGS, fillText, getScene, HIDDEN_LABEL, newGame, nextSceneId, slotId, type SaveSlot,
-  partnerName, pickEnding, statProfile, nearestEndings, endingRules, weirdRules, rememberScenes, resolveLines, save, STAT_INFO, unlockedEndings, unlockEnding, visibleChoices,
+  partnerName, pickEnding, endAgeOf, statProfile, nearestEndings, endingRules, weirdRules, rememberScenes, resolveLines, save, STAT_INFO, unlockedEndings, unlockEnding, visibleChoices,
 } from './game/engine'
 import { stageOf } from './game/story'
 import { SwipeChoice, splitIcon } from './components/SwipeChoice'
 import { MiniGame } from './components/MiniGame'
-import { HustleMode, type HustleResult } from './components/HustleMode'
+import { DebtBar, HustleMode, type HustleResult } from './components/HustleMode'
 import { charAge } from './art/Character'
 import { endingArtOf } from './art/endingArt'
 import { personaSentence } from './game/personaHooks'
@@ -27,6 +27,8 @@ import { ancestorOf, canPassOn, freshUnlocks, giftsOf, inheritedPersona, hasUnlo
 import { ACHS, checkAchs, choiceKey, karmaOf, rebornTrait, dreamOf, DREAMS, pickFew, recordDream, TRAITS, unlockAch, unlockedAchs, type Ach } from './game/goals'
 import { musicOn, playMusic, resumeAudio, setMusicOn, sfx, type Mood } from './lib/sound'
 import { Fx, type FxKind } from './components/Fx'
+import { logEnd, logQuit, logStart, trackScene } from './lib/telemetry'
+import { FeedbackBox } from './components/FeedbackBox'
 
 type Screen = 'title' | 'setup' | 'play' | 'ending' | 'album' | 'reborn' | 'legacy'
 
@@ -66,7 +68,7 @@ export default function App() {
         <Play
           key={game.seed}
           initial={game}
-          onQuit={toTitle}
+          onQuit={() => { logQuit(); toTitle() }}
           onEnd={end}
         />
       )}
@@ -236,6 +238,13 @@ function Setup({ onBack, onStart }: { onBack: () => void; onStart: (g: GameState
 
 /* ───────────────────────── ตัวเกม ───────────────────────── */
 type Phase = 'card' | 'lines' | 'choice' | 'result' | 'mini' | 'hustle'
+/** ความฝันที่ผูกกับฉากจบ (ร้อยปี / ตำนาน / บ้านเกิด) → โชว์ว่าเงื่อนไขครบกี่ข้อ (ดูรายละเอียดในเข็มทิศฉากจบ) */
+const dreamChecks = (s: GameState) => {
+  const r = endingRules(s).find((x) => x.id === dreamOf(s)?.ending)
+  return r && r.checks.length > 1 ? ` · ✅ ${r.checks.filter((c) => c.ok).length}/${r.checks.length} 🧭` : ''
+}
+/** หมดตัวได้กี่ครั้งต่อชีวิต ก่อนล้มละลาย */
+const HUSTLE_MAX = 7
 
 function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => void; onEnd: (g: GameState) => void }) {
   const [s, setS] = useState(initial)
@@ -247,7 +256,7 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
   const [voice, setVoice] = useState(voiceOn())
   const [left, setLeft] = useState<number | null>(null)
   const [react, setReact] = useState('✨')
-  const [hustle, setHustle] = useState<{ target: number; age: number } | null>(null)
+  const [hustle, setHustle] = useState<{ target: number; age: number; report: ReturnType<typeof passYears>['report'] | null } | null>(null)
   const [report, setReport] = useState<ReturnType<typeof passYears>['report'] | null>(null)
   const [fx, setFx] = useState<{ kind: FxKind; key: number } | null>(null)
   const [shake, setShake] = useState(0)
@@ -272,6 +281,15 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [line?.text, phase, idx, voice])
   useEffect(() => () => stopVoice(), [])
+  // 📊 สถิติการเล่น: เริ่มชีวิต / เล่นต่อ
+  useEffect(() => { logStart(initial); trackScene(initial, getScene(initial.sceneId).age) }, [initial])
+  // ปลดหนี้หมด → ฉลอง
+  const lastDebt = useRef(initial.debt)
+  useEffect(() => {
+    if (lastDebt.current > 0 && s.debt === 0) { sfx('unlock'); boom('coins'); toast(`🎉 ปลดหนี้หมดแล้ว! ไม่ต้องดิ้นรนหาเงินใช้หนี้อีก`, true) }
+    lastDebt.current = s.debt
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s.debt])
 
   // จับเวลาเลือก — เริ่มนับหลังเสียงพากย์จบ + ให้เวลาอ่านตัวเลือกตามความยาว, หยุดนับเมื่อเปิดเมนู
   const panelRef = useRef(panel)
@@ -364,18 +382,33 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
     const id = nextSceneId(aged) ?? id0
     setReport(rep.years > 0 ? rep : null)
     if (rep.shock) setTimeout(() => { sfx(rep.shock!.cash < 0 ? 'shock' : 'good'); boom(rep.shock!.cash < -50_000 ? 'rain' : rep.shock!.cash > 50_000 ? 'coins' : null, { shake: rep.shock!.cash < -50_000, flash: 'white' }) }, 500)
-    const ng = { ...aged, sceneId: id, visited: [...(aged.visited ?? []), id] }
+    const age = getScene(id).age
+    let ng = { ...aged, sceneId: id, visited: [...(aged.visited ?? []), id] }
+    // เงินสดหมดแต่ยังมีเงินลงทุน → ขายเงินลงทุนมาใช้ก่อน (ไม่ต้องไปหาเงินทั้งที่ยังมีทรัพย์สิน)
+    if (age >= 19 && ng.cash < 10_000 && ng.invest > 0) {
+      const sell = Math.min(ng.invest, 100_000 - ng.cash)
+      ng = { ...ng, cash: ng.cash + sell, invest: ng.invest - sell }
+      setTimeout(() => toast(`📈 เงินสดหมด → ขายเงินลงทุน ${fmtBaht(sell)} มาใช้จ่าย (เหลือลงทุน ${fmtBaht(ng.invest)})`, false), 400)
+    }
+    // เงินหมด → นับครั้ง (หมดตัวเกิน HUSTLE_MAX ครั้งทั้งที่ยังมีหนี้ = ล้มละลาย จบชีวิต)
+    const broke = age >= 19 && ng.cash < 10_000
+    if (broke) {
+      const n = (ng.hustles ?? 0) + 1
+      if (n > HUSTLE_MAX && ng.debt > 0) return onEnd({ ...ng, endId: 'bankrupt', endAge: age, history: [...ng.history, { age, text: `หมดตัวเป็นครั้งที่ ${n} จนถูกฟ้องล้มละลาย` }] })
+      ng = { ...ng, hustles: n }
+      if (n === HUSTLE_MAX) setTimeout(() => toast(`⚠️ หมดตัวครั้งที่ ${n} แล้ว! ถ้าหมดอีกครั้งตอนยังมีหนี้ = ล้มละลาย`, false), 600)
+    }
     picking.current = ''
     save(ng)
     setS(ng)
+    trackScene(ng, age)
     setLines(resolveLines(getScene(id).lines, ng))
     setIdx(0)
     // เงินหมด → เข้าโหมดหาเงินก่อน
-    const age = getScene(id).age
-    if (age >= 19 && ng.cash < 10_000) {
+    if (broke) {
       showAch(unlockAch('broke'))
       sfx('bad')
-      setHustle({ target: Math.round((Math.max(40_000, Math.min(250_000, ng.debt * 0.08)) * (ng.flags.includes('iron') ? 0.6 : 1)) / 1000) * 1000, age })
+      setHustle({ target: Math.round((Math.max(40_000, Math.min(250_000, ng.debt * 0.08)) * (ng.flags.includes('iron') ? 0.6 : 1)) / 1000) * 1000, age, report: rep.years > 0 ? rep : null })
       setPhase('hustle')
     } else setPhase('card')
   }
@@ -420,7 +453,7 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
     const deltas = Object.entries(effects).filter(([, v]) => v)
     const now = Date.now()
     setToasts([
-      ...(Math.abs(cashDelta) >= 1000 ? [{ id: now - 1, text: `💰 ${fmtBaht(cashDelta, true)}`, good: cashDelta > 0 }] : []),
+      ...(Math.abs(cashDelta) >= 1000 ? [{ id: now - 1, text: `💰 ${fmtBaht(cashDelta, true)} · คงเหลือ ${fmtBaht(netWorth(ns))}`, good: cashDelta > 0 }] : []),
       ...deltas.map(([k, v], i) => {
         const info = STAT_INFO.find((x) => x.key === k)
         const label = info ? `${info.icon} ${info.label}` : `💗 ${HIDDEN_LABEL[k as StatKey]}`
@@ -519,7 +552,7 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
               {salaryOf(s, scene.age).monthly > 0 && <div className="truncate text-[.75rem] text-[#5a7a66] sm:text-[.75rem]">💼 {salaryOf(s, scene.age).monthly.toLocaleString('th-TH')} บ./เดือน</div>}
               {dreamOf(s) && (
                 <div className="mt-1 truncate rounded-full bg-[#fff4d6] px-2 py-0.5 text-[.75rem] text-[#7a5a00] sm:text-[.75rem]">
-                  ⭐ {dreamOf(s)!.icon} {dreamOf(s)!.name} · {dreamOf(s)!.progress(s)}
+                  ⭐ {dreamOf(s)!.icon} {dreamOf(s)!.name} · {dreamOf(s)!.progress(s)}{dreamChecks(s)}
                 </div>
               )}
             </button>
@@ -644,11 +677,11 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
       )}
 
       {phase === 'mini' && scene.minigame && <MiniGame kind={scene.minigame} onDone={finishMini} />}
-      {phase === 'hustle' && hustle && <HustleMode s={s} target={hustle.target} age={hustle.age} onDone={endHustle} />}
+      {phase === 'hustle' && hustle && <HustleMode s={s} target={hustle.target} age={hustle.age} report={hustle.report} onDone={endHustle} />}
 
       {/* ทางเลือก */}
       {phase === 'choice' && (
-        <div className={`absolute inset-0 z-20 flex justify-center p-3 pb-5 ${choices.length > 3 ? 'items-end bg-[#1d1a2b]/60 pt-[9.375rem] sm:items-center sm:pt-[7.5rem]' : 'items-end bg-[#1d1a2b]/35 pt-[9.375rem] sm:items-center'}`} onClick={(e) => e.stopPropagation()}>
+        <div className={`absolute inset-0 z-20 flex justify-center p-3 pb-5 ${choices.length > 3 ? 'items-end bg-[#1d1a2b]/60 pt-[9.375rem] sm:items-center sm:pt-[7.5rem]' : 'items-end bg-gradient-to-t from-[#1d1a2b]/55 via-transparent to-transparent pt-[9.375rem]'}`} onClick={(e) => e.stopPropagation()}>
           <div className="flex max-h-full w-full max-w-xl flex-col lg:max-w-3xl">
             {scene.timer && <p className="mb-2 text-center font-display text-lg text-white drop-shadow">{reading ? '📖 อ่านตัวเลือกก่อน... แล้วจะเริ่มจับเวลา' : '⏰ เลือกเร็ว!'}</p>}
             {left != null && scene.timer && (
@@ -799,6 +832,7 @@ function StatsView({ s, age }: { s: GameState; age?: number }) {
         <div className="rounded-2xl bg-[#eef2fb] p-2"><div className="text-xs text-[#5a6a8a]">ลงทุน/บ้าน</div><div className="font-display text-[#3a5fb0]">{fmtBaht(s.invest)}</div></div>
         <div className="rounded-2xl bg-[#fdecef] p-2"><div className="text-xs text-[#8a5a66]">หนี้</div><div className="font-display text-[#c0505f]">{fmtBaht(s.debt)}</div></div>
       </div>
+      {s.debt > 0 && <DebtBar s={s} />}
       <div className="mt-2 text-right text-sm text-[#5a3443]">ความมั่งคั่งสุทธิ <b className="font-display">{fmtBaht(netWorth(s))}</b></div>
       {age != null && salaryOf(s, age).monthly > 0 && (
         <div className="mt-2 rounded-2xl bg-[#f6f8f2] p-3 text-sm">
@@ -839,7 +873,7 @@ function StatsView({ s, age }: { s: GameState; age?: number }) {
 
 const END_HINT: Record<string, string> = {
   legend: 'ทักษะหลักของอาชีพต้องเด่นที่สุดในชีวิต', family: 'ครอบครัวเด่นติด 2 อันดับแรก และอยู่กับคู่ชีวิตจนแก่', friend: 'มิตรภาพเด่นติด 2 อันดับแรก', free: 'ความสุขเด่นติด 2 อันดับแรก หรือใช้ชีวิตแบบนักฝัน',
-  home: 'มีรากที่ต่างจังหวัด กลับบ้านเกิดตอนเกษียณ และครอบครัว/ความสุขติด 3 อันดับแรก', centenarian: 'ร่างกายเด่นที่สุด และความสุขติด 2 อันดับแรก', ordinary: 'ไม่มีค่าไหนเด่นกว่าค่าอื่นชัดเจน',
+  home: 'มีรากที่ต่างจังหวัด กลับบ้านเกิดตอนเกษียณ และครอบครัว/ความสุขติด 3 อันดับแรก', centenarian: 'ร่างกายเด่น ความสุขติด 2 อันดับแรก ดูแลสุขภาพจริงจัง ไม่บ้างาน และไม่โดดเดี่ยว — แล้วอยู่ให้รอดถึง 100', ordinary: 'ไม่มีค่าไหนเด่นกว่าค่าอื่นชัดเจน',
   lonelyrich: 'เงินเด่น แต่ครอบครัวและความรักอ่อน', regret: 'ความสุขและครอบครัวอยู่ท้ายตาราง', accident: 'ความเร็วตอนวัยรุ่น', jail: 'เงินง่าย ๆ ที่ผิดกฎหมาย',
   fugitive: 'หนีเมื่อความผิดตามมาทัน', bankrupt: 'กู้หนี้จนเกินตัว', overwork: 'ทำงานหนักไม่พัก', heart: 'ไม่ยอมไปหาหมอ',
   alien: 'เก็บธง 3 อัน: หินอุกกาบาต → ถอดรหัส → ยาน', cat: 'เก็บธง 3 อัน: โกโก้ → สลับร่าง → แมวในใจ', ghost: 'เก็บธง 3 อัน: ใต้ถุนบ้าน → ความฝัน → อายุ 70',
@@ -963,7 +997,7 @@ function LifeLog({ s, collapsible }: { s: GameState; collapsible?: boolean }) {
 function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameState; onTitle: () => void; onAgain: () => void; onReborn: () => void; onLegacy: () => void }) {
   const [ending] = useState<Ending>(() => pickEnding(s))
   const [isNew] = useState(() => !unlockedEndings().includes(ending.id))
-  const age = ending.id === 'centenarian' ? 100 : s.endAge ?? 70
+  const age = endAgeOf(s, ending)
   const dream = dreamOf(s)
   const [dreamOk] = useState(() => !!dream && dream.check(s, ending))
   const [newAchs, setNewAchs] = useState<Ach[]>([])
@@ -975,6 +1009,7 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
   const [shareText, setShareText] = useState<string | null>(null)
   useEffect(() => {
     unlockEnding(ending.id)
+    logEnd(s, ending, age, dreamOk)
     if (s.visited?.length) rememberScenes(s.visited)
     const ids = ['first']
     if (dreamOk) { ids.push('dream'); if (recordDream(dream!.id) >= 3) ids.push('dream3') }
@@ -1071,6 +1106,8 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
               {copied === 'copied' ? '✅ คัดลอกแล้ว — วางในแชตได้เลย' : copied === 'shared' ? '✅ แชร์แล้ว' : '📤 แชร์ผลชีวิต'}
             </button>
           </div>
+
+          <FeedbackBox s={s} ending={ending} age={age} />
 
           {/* ───── ไปต่อ ───── */}
           <div className="rounded-3xl bg-white/90 p-4 shadow-xl sm:p-5">
@@ -1455,7 +1492,7 @@ function SlotActions({ x, onOpen, onDelete }: { x: SaveSlot; onOpen: (x: SaveSlo
 /* ───────────────────────── รุ่นต่อรุ่น ───────────────────────── */
 function Legacy({ prev, onStart, onBack }: { prev: GameState; onStart: (g: GameState) => void; onBack: () => void }) {
   const [ending] = useState(() => pickEnding(prev))
-  const age = ending.id === 'centenarian' ? 100 : prev.endAge ?? 70
+  const age = endAgeOf(prev, ending)
   const [heir] = useState<Heirloom>(() => heirloomOf(prev, ending))
   const inh = inheritanceOf(prev)
   const [name, setName] = useState('')
@@ -1559,7 +1596,7 @@ function pastOf(s: GameState): PastLife {
   const k = karmaOf(s)
   return {
     name: s.name, gender: s.gender, endingId: e.id, endingTitle: e.title, emoji: e.emoji, kind: e.kind,
-    career: s.career, age: e.id === 'centenarian' ? 100 : s.endAge ?? 70, net: netWorth(s),
+    career: s.career, age: endAgeOf(s, e), net: netWorth(s),
     dream: s.dream, dreamOk: !!d && d.check(s, e), karma: k.score, picks: s.picks ?? [], history: s.history, flags: s.flags,
   }
 }

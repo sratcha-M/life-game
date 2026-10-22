@@ -11,7 +11,7 @@ const INFO: Record<MiniKind, { icon: string; title: string; how: string; secs: n
   tap: { icon: '🏃', title: 'วิ่งแข่งกีฬาสี!', how: 'แตะรัว ๆ ให้เร็วที่สุด', secs: 5, color: '#f4a261', dark: '#b4602a', bg: 'racetrack' },
   math: { icon: '✏️', title: 'สอบเข้า ม.1', how: `มี ${MATH_Q} ข้อ ตอบได้ข้อละครั้งเดียว`, secs: 20, color: '#3f9a70', dark: '#245a42', bg: 'chalkboard' },
   catch: { icon: '🧺', title: 'เก็บเงินพาร์ทไทม์', how: 'ลากตะกร้ารับเหรียญ 🪙 หลบบิล 🧾', secs: 10, color: '#4aa3df', dark: '#24668f', bg: 'city' },
-  memory: { icon: '🃏', title: 'เกมจับคู่', how: 'เปิดการ์ดจับคู่ให้ครบ', secs: 25, color: '#9b7fd1', dark: '#5e4796', bg: 'classroom' },
+  memory: { icon: '🧠', title: 'เกมจับคู่', how: 'เปิดการ์ดจับคู่ให้ครบ', secs: 25, color: '#9b7fd1', dark: '#5e4796', bg: 'classroom' },
   timing: { icon: '💓', title: 'จังหวะหัวใจ', how: 'แตะตอนหัวใจอยู่ในโซนชมพู', secs: 12, color: '#e0707f', dark: '#a8404f', bg: 'love' },
 }
 

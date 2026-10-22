@@ -11,11 +11,12 @@ import { FEAR_SCENES, KARMA_SCENES, ROAD_SCENES } from './karma'
 import { JOB_SCENES } from './jobs'
 import { CROSS, DAD_PASS, HEIR, JOBLESS, LATER, LOVE2, WEIRD2 } from './later'
 import { MONK_SCENES, monkAllows, monkBans } from './monk'
+import { longevityScenes } from './longevity'
 import BASELINE from './statBaseline.json'
 import { withTraitLines } from './personaHooks'
 import { PARENT_AGE, parentGoneAt, pct, qx } from './realstats'
 import { applyFin, netWorth } from './finance'
-import { TRAITS } from './goals'
+import { dreamNeeds, dreamOf, TRAITS } from './goals'
 import { CAREER_STAT } from './careers'
 export { fmtBaht, netWorth, passYears, married } from './finance'
 import type { Bonds, BondId, Choice, Ending, GameState, Gender, Line, Lines, Scene, StatKey, Stats } from './types'
@@ -68,7 +69,7 @@ function passVariants(base: Scene, who: 'mom' | 'dad'): Scene[] {
 const MOM_PASS = DRAMA.find((sc) => sc.id === 'mom_pass')!
 const PARENT_SCENES = [...passVariants(MOM_PASS, 'mom'), ...passVariants(DAD_PASS, 'dad')]
 
-export const SCENES = [...KARMA_SCENES, ...BASE, ...EVENTS, ...LIFE, ...DRAMA.filter((sc) => sc.id !== 'mom_pass'), ...PARENT_SCENES, ...BOND_SCENES, ...CARDS, ...SECRET_SCENES, ...THREADS, ...FLAG_SCENES, ...FEAR_SCENES, ...ROAD_SCENES, ...JOB_SCENES, ...MONK_SCENES, ...LATER, ...LOVE2, ...CROSS, ...WEIRD2, ...HEIR, ...JOBLESS]
+export const SCENES = [...KARMA_SCENES, ...BASE, ...EVENTS, ...LIFE, ...DRAMA.filter((sc) => sc.id !== 'mom_pass'), ...PARENT_SCENES, ...BOND_SCENES, ...CARDS, ...SECRET_SCENES, ...THREADS, ...FLAG_SCENES, ...FEAR_SCENES, ...ROAD_SCENES, ...JOB_SCENES, ...MONK_SCENES, ...LATER, ...LOVE2, ...CROSS, ...WEIRD2, ...HEIR, ...JOBLESS, ...longevityScenes(onLongLife)]
   .map(withTraitLines)
   .map((sc) => (BECAUSE[sc.id] && !sc.because ? { ...sc, because: BECAUSE[sc.id] } : sc))
   .map((sc) => (OPTIONAL[sc.id] !== undefined ? { ...sc, chance: OPTIONAL[sc.id] * 0.8 } : sc))
@@ -110,8 +111,6 @@ export const getScene = (id: string) => SCENES.find((s) => s.id === id)!
 const noBoss = (s: GameState) => s.flags.includes('fired') || s.flags.includes('own_boss') || isMonk(s)
 /** บวช → ไม่มีแฟน ไม่มีหัวหน้า (พระไม่มีนายจ้าง) */
 const isMonk = (s: GameState) => s.career === 'monk'
-const LOVE_SCENES = new Set(['love', 'single', 'love_work', 'love_late'])
-const loveScene = (sc: Scene) => LOVE_SCENES.has(sc.id) || (Array.isArray(sc.cast) && sc.cast.includes('fah'))
 const bossScene = (sc: Scene) => (Array.isArray(sc.cast) && sc.cast.includes('boss')) || sc.bg === 'office' || sc.id.startsWith('f_hr')
 /** ฉากที่มีพ่อ/แม่อยู่ → ไม่เกิดหลังพ่อ/แม่จากไปแล้ว */
 const mentions = (sc: Scene, who: string) => {
@@ -130,7 +129,8 @@ export function sceneAvailable(sc: Scene, s: GameState) {
   if (noBoss(s) && bossScene(sc) && !sc.id.startsWith('heir_') && !sc.id.startsWith('job_')) return false
   // บวชแล้ว → ไม่มีเรื่องรัก แต่งงาน หัวหน้า ลงทุน ฯลฯ เหลือแต่ฉากที่เข้ากับชีวิตนักบวช
   if (isMonk(s) && sc.age >= (s.careerSince ?? 22) && !monkAllows(sc.id)) return false
-  if (sc.force?.(s)) return true
+  // ฉากที่บังคับ หรือเป็นประตูสู่ความฝันที่เลือกไว้ → เกิดแน่นอน (ทุกความฝันต้องมีทางไปถึง)
+  if (sc.force?.(s) || dreamNeeds(s, sc.id)) return true
   if (sc.chance !== undefined) {
     // ชีวิตก่อนเคยเจอแล้ว → โอกาสเกิดลดลง, ยังไม่เคยเจอ → โอกาสเพิ่มขึ้น
     const c = s.avoid?.includes(sc.id) ? sc.chance * 0.5 : s.avoid ? Math.min(0.95, sc.chance * 1.3) : sc.chance
@@ -197,7 +197,7 @@ export function applyChoice(s: GameState, c: Choice, age: number, sceneId: strin
   let fin = c.fin
   let bond: Bonds = c.bond ?? {}
   if (c.outcomes?.length) {
-    let r = rand(s.seed, sceneId + c.text) * (s.flags.includes('lucky') ? 0.55 : 1)
+    let r = rand(s.seed, sceneId + c.text) * (s.flags.includes('lucky') ? 0.75 : 1)
     const o = c.outcomes.find((x) => (r -= x.chance) < 0) ?? c.outcomes[c.outcomes.length - 1]
     eff = { ...eff, ...(o.effects ?? {}) }
     flags = [...flags, ...(o.flags ?? [])]
@@ -302,8 +302,14 @@ export function endingRules(s: GameState): EndRule[] {
   const isLow = (k: StatKey, n: number) => ({ label: `${name(k)} อยู่ ${n} อันดับท้าย (ตอนนี้อันดับ ${P.low(k)} จากท้าย)`, ok: P.low(k) <= n })
   const below = (k: StatKey) => ({ label: `${name(k)} อ่อนกว่าค่ากลางของชีวิตนี้`, ok: P.score(k) < P.median })
   const cs = s.career ? CAREER_STAT[s.career] : null
-  return [
-    { id: 'centenarian', checks: [isLead('body'), isTop2('happy')] },
+  const reached100 = s.visited?.includes('long_100')
+  const rules: EndRule[] = [
+    { id: 'centenarian', checks: reached100 ? [{ label: '🎂 อยู่ถึงวันเกิดปีที่ 100', ok: true }] : [
+      isLead('body'), isTop2('happy'),
+      { label: '🏃 เคยเปลี่ยนมาดูแลสุขภาพจริงจัง (ออกกำลังกาย/เลิกเหล้าบุหรี่/ไปหาหมอทันเวลา)', ok: has('healthy') },
+      { label: '🧘 ไม่บ้างานจนเครียดเรื้อรัง (หรือเกษียณเร็ว)', ok: !has('workaholic') || has('early_retire') },
+      { label: `🤝 ไม่อยู่อย่างโดดเดี่ยว: 🏠 ครอบครัว หรือ 🤝 เพื่อน ติด 4 อันดับแรก (ตอนนี้อันดับ ${Math.min(P.rank('family'), P.rank('friend'))})`, ok: Math.min(P.rank('family'), P.rank('friend')) <= 4 },
+    ] },
     { id: 'regret', bad: true, checks: [isLow('happy', 3), isLow('family', 3)] },
     { id: 'lonelyrich', bad: true, checks: [isLead('money'), below('family'), below('love')] },
     { id: 'legend', checks: cs ? [{ ...isLead(cs), label: `⭐ ทักษะอาชีพ (${name(cs)}) เด่นอันดับ 1 (ตอนนี้อันดับ ${P.rank(cs)})`, ok: P.lead(cs) && P.rank(cs) === 1 }] : [{ label: '⭐ ต้องมีอาชีพก่อน', ok: false }] },
@@ -314,6 +320,20 @@ export function endingRules(s: GameState): EndRule[] {
     { id: 'regret', bad: true, checks: [{ ...isLow('happy', 1), label: `${name('happy')} ต่ำที่สุดในชีวิต (ตอนนี้อันดับ ${P.low('happy')} จากท้าย)` }] },
     { id: 'ordinary', checks: [] },
   ]
+  // ทำเงื่อนไขฉากจบของความฝันครบแล้ว → ฉากจบนั้นชนะ (ไม่ให้ฉากจบอื่นที่อยู่ลำดับบนแย่งไป)
+  const i = rules.findIndex((r) => r.id === dreamOf(s)?.ending)
+  if (i > 0) rules.unshift(...rules.splice(i, 1))
+  return rules
+}
+/** ยังอยู่บนเส้นทางร้อยปีไหม — ใช้เปิดฉาก 80/90/100 หลังวันเกิด 70 (function ประกาศแบบ hoist เพราะ SCENES เรียกใช้ก่อนถึงบรรทัดนี้) */
+function onLongLife(s: GameState) {
+  return !s.endId && endingRules(s).find((r) => r.id === 'centenarian')!.checks.every((c) => c.ok)
+}
+/** อายุตอนจบชีวิต: ร้อยปี / จบกลางทางตามฉาก / หรือฉากหลังเส้นทางร้อยปีที่ไปถึง (หลุดเส้นทางตอน 80–90 ก็จบที่อายุนั้น) */
+export function endAgeOf(s: GameState, e: Ending) {
+  if (e.id === 'centenarian') return 100
+  if (s.endAge) return s.endAge
+  return Math.max(70, ...(s.visited ?? []).filter((id) => id.startsWith('long_')).map((id) => getScene(id).age))
 }
 /** ฉากจบประหลาด: ต้องเก็บธงหลายอัน */
 export function weirdRules(s: GameState): EndRule[] {
@@ -331,7 +351,9 @@ export function nearestEndings(s: GameState) {
   const now = rules.find((r) => r.checks.every((c) => c.ok))!
   const above = rules.slice(0, rules.indexOf(now)).filter((r) => !r.bad)
   const score = (r: EndRule) => r.checks.filter((c) => c.ok).length / r.checks.length
-  const close = [...above].sort((a, b) => score(b) - score(a)).slice(0, 2)
+  // ฉากจบของความฝัน → ปักไว้บนสุดเสมอ ให้เห็นว่ายังขาดเงื่อนไขอะไร
+  const dream = rules.find((r) => r.id === dreamOf(s)?.ending && r !== now)
+  const close = [...(dream ? [dream] : []), ...[...above].filter((r) => r !== dream).sort((a, b) => score(b) - score(a))].slice(0, 2)
   return { now, close }
 }
 

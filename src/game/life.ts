@@ -1,4 +1,4 @@
-import { married, netWorth } from './finance'
+import { fmtBaht, married, netWorth } from './finance'
 import type { GameState, Scene } from './types'
 
 const has = (s: GameState, f: string) => s.flags.includes(f)
@@ -53,7 +53,9 @@ export const LIFE: Scene[] = [
         { chance: 0.6, memory: 'ขาดทุนคริปโตนิดหน่อย', result: [{ text: 'เหรียญร่วงเหลือศูนย์... โชคดีที่ลงไม่เยอะ' }] },
       ] },
       { text: '🎰 ทุ่มหมดตัว + กู้เพิ่ม', hint: 'เสี่ยงมาก', outcomes: [
-        { chance: 0.2, fin: { cashMul: 6, investMul: 3 }, effects: { happy: 3 }, flags: ['crypto_rich'], memory: 'รวยจากคริปโตชั่วข้ามคืน', result: [{ text: '🚀 ขึ้นอีกร้อยเท่า! กลายเป็นเศรษฐีชั่วข้ามคืน' }] },
+        // ทุ่มทั้งเงินที่มี + เงินกู้ → กำไรก้อนใหญ่จากเงินกู้ด้วย (ไม่ใช่แค่คูณเงินสดที่อาจเหลือศูนย์)
+        { chance: 0.2, fin: { cashMul: 6, investMul: 3, cash: 3_000_000 }, effects: { happy: 3 }, flags: ['crypto_rich'], memory: 'รวยจากคริปโตชั่วข้ามคืน',
+          result: (s) => [{ text: '🚀 ขึ้นอีกร้อยเท่า! ขายทิ้งทั้งหมด ใช้หนี้ที่กู้มาเล่นแล้วยังเหลือเพียบ' }, { text: `💰 ตอนนี้มีเงินสด ${fmtBaht(s.cash)} · เงินลงทุน ${fmtBaht(s.invest)}${s.debt > 0 ? ` · หนี้ ${fmtBaht(s.debt)}` : ''}` }] },
         { chance: 0.8, fin: { cashMul: 0, investMul: 0.3, debt: 1_500_000 }, effects: { happy: -4, family: -2 }, flags: ['debt'], memory: 'คริปโตล่ม หมดตัวและติดหนี้', result: [{ text: '📉 เหรียญล่มในคืนเดียว... หมดตัวแถมติดหนี้ล้านครึ่ง' }] },
       ] },
     ],

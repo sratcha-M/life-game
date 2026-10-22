@@ -111,6 +111,8 @@ function grayed(hair: string, age: number) {
 
 // ภาพตัวละครจาก AI: src/assets/char/<ชื่อ>.webp เช่น me_girl_teen, me_boy_kid, mom, ton_teen
 const SPRITES = import.meta.glob('../assets/char/*.webp', { eager: true, import: 'default' }) as Record<string, string>
+// รูปขยาย 2 เท่าด้วย Real-ESRGAN (anime) — โหลดเฉพาะจอความละเอียดสูง จอธรรมดา/เน็ตช้ายังใช้ไฟล์เล็กเดิม
+const SPRITES_HD = import.meta.glob('../assets/char/hd/*.webp', { eager: true, import: 'default' }) as Record<string, string>
 const PIXEL_SPRITES = ['me_boy_elder']
 const stageKey = (age: number) => (age < 3 ? 'baby' : age < 13 ? 'kid' : age < 19 ? 'teen' : age < 60 ? 'adult' : 'elder')
 function spriteFor(id: CharId, age: number, s: GameState) {
@@ -122,7 +124,7 @@ function spriteFor(id: CharId, age: number, s: GameState) {
     : id === 'fah' && s.flags.includes('mate') ? [`fah_mate_${other}_${st}`, `fah_mate_${other}_adult`]
     : id === 'fah' ? [`fah_${other}_${st}`, `fah_${other}`]
     : [...(age >= (id === 'ton' ? 45 : 58) ? [`${id}_elder`] : []), `${id}_${st}`, id]
-  for (const k of keys) { const url = SPRITES[`../assets/char/${k}.webp`]; if (url) return { url, pixel: PIXEL_SPRITES.includes(k) } }
+  for (const k of keys) { const url = SPRITES[`../assets/char/${k}.webp`]; if (url) return { url, hd: SPRITES_HD[`../assets/char/hd/${k}.webp`], pixel: PIXEL_SPRITES.includes(k) } }
   return null
 }
 
@@ -131,8 +133,8 @@ export function Character({ id, playerAge, s, expr = 'neutral', bg, dim }: {
 }) {
   const age = charAge(id, playerAge)
   if (id === 'coco') {
-    const sp = SPRITES['../assets/char/coco.webp']
-    if (sp) return <div className="flex h-full w-full items-end justify-center"><img src={sp} alt="โกโก้" draggable={false} className="h-[45%] w-full object-contain object-bottom drop-shadow-[0_8px_18px_rgba(0,0,0,.25)]" style={{ filter: dim ? 'brightness(.62)' : undefined }} /></div>
+    const sp = SPRITES['../assets/char/coco.webp'], spHd = SPRITES_HD['../assets/char/hd/coco.webp']
+    if (sp) return <div className="flex h-full w-full items-end justify-center"><img src={sp} srcSet={spHd ? `${sp} 1x, ${spHd} 2x` : undefined} alt="โกโก้" draggable={false} className="h-[45%] w-full object-contain object-bottom drop-shadow-[0_8px_18px_rgba(0,0,0,.25)]" style={{ filter: dim ? 'brightness(.62)' : undefined }} /></div>
     return (
       <div className="flex h-full w-full items-end justify-center pb-[18%]" style={{ filter: dim ? 'brightness(.62)' : undefined }}>
         <span className="leading-none drop-shadow-[0_8px_14px_rgba(0,0,0,.3)]" style={{ fontSize: 'min(20vh, 22vw, 150px)', transform: age > 10 ? 'scaleX(-1)' : undefined }}>{age > 10 ? '🐕' : '🐶'}</span>
@@ -142,14 +144,17 @@ export function Character({ id, playerAge, s, expr = 'neutral', bg, dim }: {
   const sprite = spriteFor(id, age, s)
   if (sprite) {
     const sc = age < 3 ? 0.62 : age < 8 ? 0.8 : age < 13 ? 0.88 : age < 17 ? 0.96 : 1
+    // ยึดความสูงเท่ากันทุกตัว (รูปกว้าง/แคบไม่ทำให้ตัวเล็กใหญ่ต่างกัน) — ล้นกรอบด้านข้างได้
     return (
-      <img src={sprite.url} alt={id === 'me' ? s.name : NAMES[id]} draggable={false}
-        className="h-full w-full object-contain object-bottom drop-shadow-[0_8px_18px_rgba(0,0,0,.25)]"
-        style={{
-          transform: `scale(${sc})`, transformOrigin: 'bottom center',
-          imageRendering: sprite.pixel ? 'pixelated' : undefined,
-          filter: dim ? 'brightness(.62) saturate(.8)' : undefined, transition: 'filter .3s',
-        }} />
+      <div className="flex h-full w-full items-end justify-center">
+        <img src={sprite.url} srcSet={sprite.hd ? `${sprite.url} 1x, ${sprite.hd} 2x` : undefined} alt={id === 'me' ? s.name : NAMES[id]} draggable={false}
+          className="h-full w-auto max-w-none shrink-0 drop-shadow-[0_8px_18px_rgba(0,0,0,.25)]"
+          style={{
+            transform: `scale(${sc})`, transformOrigin: 'bottom center',
+            imageRendering: sprite.pixel ? 'pixelated' : undefined,
+            filter: dim ? 'brightness(.62) saturate(.8)' : undefined, transition: 'filter .3s',
+          }} />
+      </div>
     )
   }
   const L = lookFor(id, age, s, bg)

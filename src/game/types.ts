@@ -42,6 +42,10 @@ export interface GameState {
   cash: number
   invest: number
   debt: number
+  /** หนี้สูงสุดของรอบนี้ (รีเซ็ตเมื่อปลดหนี้หมด) — ใช้โชว์ว่าใช้หนี้คืนไปแล้วเท่าไร */
+  debtMax?: number
+  /** จำนวนครั้งที่หมดตัวจนต้องเข้าโหมดหาเงิน */
+  hustles?: number
   /** ความฝัน (เป้าหมายชีวิต) และไพ่ดวงชะตาตอนเกิด */
   dream?: string
   trait?: string

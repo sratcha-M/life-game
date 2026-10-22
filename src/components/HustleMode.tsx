@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { fmtBaht, married, rand } from '../game/finance'
+import { fmtBaht, married, rand, type YearReport } from '../game/finance'
 import { bondOf } from '../game/bonds'
 import type { Bonds, GameState } from '../game/types'
 import { MiniGame, type MiniKind } from './MiniGame'
@@ -54,8 +54,23 @@ const JOBS: Job[] = [
 ]
 
 const ROUNDS = 5
+/** เงินกันไว้ใช้ชีวิตหลังปลดหนี้ */
+const BUFFER = 10_000
 
-export function HustleMode({ s, target, age, onDone }: { s: GameState; target: number; age: number; onDone: (r: HustleResult) => void }) {
+/** หลอดใช้หนี้คืน: หนี้สูงสุดของรอบนี้ → ตอนนี้เหลือเท่าไร */
+export function DebtBar({ s, pay = 0 }: { s: GameState; pay?: number }) {
+  const peak = Math.max(s.debtMax ?? 0, s.debt)
+  const left = Math.max(0, s.debt - pay)
+  const paid = peak > 0 ? 1 - left / peak : 1
+  return (
+    <div className="mt-2 rounded-2xl bg-[#fdecef] px-3 py-2 text-[.8125rem] text-[#5a3443]">
+      <div className="flex justify-between"><span>💳 ใช้หนี้คืนแล้ว {Math.round(paid * 100)}%</span><span>เหลือ <b className="font-display font-normal text-[#c0505f]">{fmtBaht(left)}</b> จาก {fmtBaht(peak)}</span></div>
+      <div className="mt-1 h-2 overflow-hidden rounded-full bg-white"><div className="h-full rounded-full bg-[#3fae78] transition-all duration-500" style={{ width: `${paid * 100}%` }} /></div>
+    </div>
+  )
+}
+
+export function HustleMode({ s, target, age, report, onDone }: { s: GameState; target: number; age: number; report?: YearReport | null; onDone: (r: HustleResult) => void }) {
   const scale = age < 25 ? 0.7 : age < 60 ? 1 : 0.6
   const [earned, setEarned] = useState(0)
   const [debt, setDebt] = useState(0)
@@ -65,7 +80,11 @@ export function HustleMode({ s, target, age, onDone }: { s: GameState; target: n
   const [used, setUsed] = useState<string[]>([])
   const [playing, setPlaying] = useState<Job | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
-  const done = earned >= target
+  /** หาเงินได้พอปลดหนี้หมด (รวมหนี้นอกระบบที่เพิ่งกู้) + เงินกันไว้ใช้ → ไม่ต้องทำงานเพิ่ม */
+  const clearAt = s.debt + debt + BUFFER
+  const clears = s.debt > 0 && earned >= clearAt
+  const goal = s.debt > 0 ? Math.min(target, clearAt) : target
+  const done = earned >= goal
   const over = !done && round >= ROUNDS
 
   const bump = (k: keyof HustleResult['effects'], v: number) => setEff((e) => ({ ...e, [k]: (e[k] ?? 0) + v }))
@@ -111,22 +130,42 @@ export function HustleMode({ s, target, age, onDone }: { s: GameState; target: n
     gain(pay, `${j.icon} ${j.name} ได้ ${fmtBaht(pay)}`)
   }
 
+  // ปลดหนี้ได้ → เอาเงินที่หาได้ใช้หนี้ทั้งหมดก่อน ที่เหลือเป็นเงินสด
   const finish = (ok: boolean) => onDone({
-    cash: earned, debt, ok, bond,
+    cash: clears ? earned - s.debt - debt : earned, debt: clears ? -s.debt : debt, ok, bond,
     effects: { ...eff, ...(ok ? {} : { happy: (eff.happy ?? 0) - 3, family: (eff.family ?? 0) - 1 }) },
-    memory: ok ? `💸 เงินหมดตอนอายุ ${age} แต่ดิ้นรนหาเงินจนรอด` : `💸 เงินหมดตอนอายุ ${age} หาเงินไม่ทัน ชีวิตลำบากหนัก`,
+    memory: clears ? `💸 เงินหมดตอนอายุ ${age} แต่ดิ้นรนหาเงินจนปลดหนี้ได้หมด` : ok ? `💸 เงินหมดตอนอายุ ${age} แต่ดิ้นรนหาเงินจนรอด` : `💸 เงินหมดตอนอายุ ${age} หาเงินไม่ทัน ชีวิตลำบากหนัก`,
   })
 
   if (playing) return <MiniGame kind={playing.kind!} title={playing.name} icon={playing.icon} how={playing.how} onDone={finishGame} />
 
-  const pct = Math.min(1, earned / target)
+  const pct = Math.min(1, earned / goal)
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#2a1520]/80 p-3 backdrop-blur-sm" onClick={(e) => e.stopPropagation()}>
       <div className="popin w-full max-w-lg rounded-[28px] border-4 border-[#ffd166] bg-white p-5 shadow-2xl">
         <div className="text-center">
           <div className="text-5xl">💸</div>
           <h2 className="font-display text-2xl text-[#c0505f]">เงินหมด! โหมดหาเงิน</h2>
-          <p className="text-sm text-[#7a5a66]">หาให้ได้ <b>{fmtBaht(target)}</b> ภายใน {ROUNDS} รอบ ไม่งั้นชีวิตลำบาก</p>
+          <p className="text-sm text-[#7a5a66]">หาให้ได้ <b>{fmtBaht(goal)}</b> ภายใน {ROUNDS} รอบ ไม่งั้นชีวิตลำบาก</p>
+          {s.debt > 0 && goal === clearAt && <p className="text-[.8125rem] text-[#2f8f5a]">💳 หาได้ครบ = ปลดหนี้หมด ไม่ต้องทำงานเพิ่ม</p>}
+          {s.debt > 0 && goal < clearAt && <p className="text-[.8125rem] text-[#8a6a76]">💳 หรือหาให้ได้ {fmtBaht(clearAt)} เพื่อปลดหนี้หมดทีเดียว</p>}
+        </div>
+        {s.debt > 0 && <DebtBar s={{ ...s, debt: s.debt + debt }} pay={Math.min(earned, s.debt + debt)} />}
+        {/* ทำไมเงินหมด: ยอดเงินตอนนี้ + รายรับรายจ่ายช่วงที่ผ่านมา */}
+        <div className="mt-3 rounded-2xl bg-[#fdf3f5] px-3 py-2 text-[.8125rem] leading-[1.6] text-[#5a3443]">
+          <div className="grid grid-cols-3 gap-1 text-center">
+            <div><div className="text-[.75rem] text-[#8a6a76]">💵 เงินสด</div><b className="font-display font-normal text-[#c0505f]">{fmtBaht(s.cash)}</b></div>
+            <div><div className="text-[.75rem] text-[#8a6a76]">📈 เงินลงทุน</div><b className="font-display font-normal">{fmtBaht(s.invest)}</b></div>
+            <div><div className="text-[.75rem] text-[#8a6a76]">🧾 หนี้</div><b className={`font-display font-normal ${s.debt > 0 ? 'text-[#c0505f]' : ''}`}>{fmtBaht(s.debt)}</b></div>
+          </div>
+          {report && (
+            <div className="mt-1 border-t border-[#f0dde3] pt-1 text-[.75rem] text-[#7a5a66]">
+              {report.years} ปีที่ผ่านมา: รายได้ {report.salary.toLocaleString('th-TH')} − ใช้จ่าย {report.cost.toLocaleString('th-TH')} บ./เดือน
+              {s.debt > 0 && ' · รายได้ส่วนใหญ่ถูกหักไปผ่อนหนี้'}
+              {report.shock && Math.abs(report.shock.cash) >= 1000 && <> · {report.shock.icon} {report.shock.text} ({fmtBaht(report.shock.cash, true)})</>}
+            </div>
+          )}
+          {!report && s.debt > 0 && <div className="mt-1 text-[.75rem] text-[#7a5a66]">เงินสดเหลือไม่ถึง ฿10,000 — รายได้ถูกหักไปผ่อนหนี้</div>}
         </div>
         <div className="mt-3 flex items-center gap-2">
           <div className="h-4 flex-1 overflow-hidden rounded-full bg-[#f3e6ea]">
@@ -161,7 +200,8 @@ export function HustleMode({ s, target, age, onDone }: { s: GameState; target: n
         {(done || over) && (
           <div className="popin mt-4 text-center">
             <div className="text-5xl">{done ? '🎉' : '😞'}</div>
-            <div className="font-display text-xl text-[#3a2433]">{done ? 'รอดแล้ว! กลับไปใช้ชีวิตต่อ' : 'หาเงินไม่ทัน... ชีวิตลำบากหนัก'}</div>
+            <div className="font-display text-xl text-[#3a2433]">{clears ? 'ปลดหนี้หมดแล้ว! ไม่ต้องทำงานเพิ่ม' : done ? 'รอดแล้ว! กลับไปใช้ชีวิตต่อ' : 'หาเงินไม่ทัน... ชีวิตลำบากหนัก'}</div>
+            {clears && <div className="text-sm text-[#2f8f5a]">ใช้หนี้ {fmtBaht(s.debt + debt)} · เหลือเงินสด {fmtBaht(earned - s.debt - debt)}</div>}
             {!done && <div className="text-sm text-[#8a6a76]">ความสุข −3 · ครอบครัว −1</div>}
             <button onClick={() => finish(done)} className="popin mt-3 w-full rounded-2xl bg-[#e0707f] py-3 font-display text-lg text-white shadow-lg active:scale-95">ไปต่อ</button>
           </div>

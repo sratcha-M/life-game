@@ -48,8 +48,11 @@ export function applyFin(s: GameState, fin: Fin | undefined, moneyEff: number, a
   if (invest < 0) { cash += invest; invest = 0 }
   if (cash < 0) { if (age >= 19) debt += -cash; cash = 0 } // เด็กไม่มีหนี้
   if (debt < 0) { cash += -debt; debt = 0 }
-  const ns = { ...s, cash: Math.round(cash), invest: Math.round(invest), debt: Math.round(debt) }
-  return { ...ns, stats: { ...ns.stats, money: moneyStat(netWorth(ns)) } }
+  const ns = { ...s, cash: Math.round(cash), invest: Math.round(invest), debt: Math.round(debt), debtMax: debt > 0 ? Math.max(s.debtMax ?? 0, Math.round(debt)) : 0 }
+  // ปลดหนี้หมด → บันทึกลงสมุดชีวิต
+  const peak = s.debtMax || s.debt
+  const history = s.debt > 0 && ns.debt === 0 && peak >= 10_000 ? [...s.history, { age, text: `🎉 ปลดหนี้หมดแล้ว! (เคยมีหนี้สูงสุด ${fmtBaht(peak)})` }] : s.history
+  return { ...ns, history, stats: { ...ns.stats, money: moneyStat(netWorth(ns)) } }
 }
 
 /** เงินเดือน (บาท/เดือน) ตามอาชีพ อายุงาน และโบนัสพิเศษ */
