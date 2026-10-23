@@ -1,4 +1,5 @@
 import { rand } from './finance'
+import { SELF_EMPLOYED } from './careers'
 import { bondOf } from './bonds'
 import type { BgId, CharId, Choice, GameState, Line, Scene } from './types'
 
@@ -65,7 +66,7 @@ export const LATER: Scene[] = [
       lines: [{ who: 'kid', text: 'หนูได้ทุนไปเรียนที่ญี่ปุ่น... แต่ต้องอยู่ที่นั่นสี่ปีนะ' }],
       choices: [
         { text: '✈️ ไปเลยลูก', effects: { family: 2, happy: -1 }, flags: ['kid_smart'], memory: 'ส่งลูกไปเรียนต่อต่างประเทศ', result: R('สนามบินตอนตีห้า ลูกกอดแน่น "หนูจะวิดีโอคอลทุกวัน"') },
-        { text: '🏠 เรียนในไทยก่อนดีไหม', effects: { family: -1, money: 1 }, memory: 'ขอให้ลูกเรียนในประเทศ', result: R('ลูกยอม... แต่สายตาตอนเก็บจดหมายตอบรับนั้นลืมไม่ลง') },
+        { text: '🏠 เรียนในไทยก่อนดีไหม', effects: { family: -1 }, memory: 'ขอให้ลูกเรียนในประเทศ', result: R('ลูกยอม... แต่สายตาตอนเก็บจดหมายตอบรับนั้นลืมไม่ลง') },
       ] },
     { id: 'checkup', bg: 'hospital', cast: ['me'], title: 'ผลตรวจประจำปี', lines: [{ text: 'หมอยื่นผลตรวจ "ความดัน ไขมัน น้ำตาล... ขึ้นหมดเลยนะ"' }],
       choices: [
@@ -116,7 +117,7 @@ export const LATER: Scene[] = [
       ] },
     { id: 'volunteer', bg: 'village', cast: ['me'], title: 'จิตอาสา', lines: [{ text: 'มูลนิธิหาคนสอนหนังสือเด็กในชุมชนแออัด ไม่มีค่าจ้าง' }],
       choices: [
-        { text: '🧑‍🏫 สมัครทันที', effects: { happy: 3, social: 2 }, flags: ['mentor'], memory: 'เป็นจิตอาสาสอนเด็กหลังเกษียณ', result: R('เด็ก ๆ เรียกว่า "คุณตาคุณยายครู" ทุกเย็น') },
+        { text: '🧑‍🏫 สมัครทันที', effects: { happy: 3, social: 2 }, flags: ['mentor'], memory: 'เป็นจิตอาสาสอนเด็กหลังเกษียณ', result: (s) => R(`เด็ก ๆ เรียกว่า "${s.career === 'monk' ? (s.gender === 'boy' ? 'หลวงตาครู' : 'แม่ชีครู') : s.gender === 'boy' ? 'คุณตาครู' : 'คุณยายครู'}" ทุกเย็น`) },
         { text: '🎨 เรียนวาดรูปเองดีกว่า', effects: { art: 3, happy: 2 }, memory: 'เริ่มเรียนวาดรูปสีน้ำตอนอายุ 61', result: R('ภาพแรกห่วยมาก ภาพที่ร้อยติดผนังร้านกาแฟในซอย') },
       ] },
   ]),
@@ -138,8 +139,9 @@ export const LATER: Scene[] = [
   ...slot('67', 67, [
     { id: 'memoir', bg: 'home', cast: ['me'], title: 'บันทึกชีวิต', lines: [{ text: 'มีคนบอกว่าเรื่องชีวิตคุณน่าเขียนเป็นหนังสือ...' }],
       choices: [
-        { text: '✍️ เขียนเลย', effects: { art: 3, happy: 2 }, flags: ['dreamer'], memory: 'เขียนหนังสือเล่าชีวิตตัวเอง', result: R('พิมพ์ได้ร้อยเล่ม แจกญาติหมด... หลานอ่านแล้วบอกว่า "เท่มาก"') },
-        { text: '🎙️ อัดเสียงเล่าให้หลานฟัง', effects: { family: 3 }, memory: 'อัดเสียงเล่าเรื่องชีวิตไว้ให้ลูกหลาน', result: R('ไฟล์เสียงหกชั่วโมง ที่ลูกหลานจะเปิดฟังในวันที่คิดถึง') },
+        { text: '✍️ เขียนเลย', effects: { art: 3, happy: 2 }, flags: ['dreamer'], memory: 'เขียนหนังสือเล่าชีวิตตัวเอง', result: (s) => R(`พิมพ์ได้ร้อยเล่ม แจกญาติหมด... ${has(s, 'kid') || has(s, 'met_nong') ? 'หลาน' : 'เด็กข้างบ้าน'}อ่านแล้วบอกว่า "เท่มาก"`) },
+        { text: '🎙️ อัดเสียงเล่าให้หลานฟัง', when: (s) => has(s, 'kid') || has(s, 'met_nong'), effects: { family: 3 }, memory: 'อัดเสียงเล่าเรื่องชีวิตไว้ให้ลูกหลาน', result: R('ไฟล์เสียงหกชั่วโมง ที่ลูกหลานจะเปิดฟังในวันที่คิดถึง') },
+        { text: '🎙️ อัดเสียงเล่าเก็บไว้', when: (s) => !has(s, 'kid') && !has(s, 'met_nong'), effects: { family: 1, happy: 2 }, memory: 'อัดเสียงเล่าเรื่องชีวิตเก็บไว้ให้คนรุ่นหลัง', result: R('ไฟล์เสียงหกชั่วโมง เผื่อวันหนึ่งจะมีใครอยากฟัง') },
       ] },
     { id: 'last_trip', bg: 'sky', cast: ['me'], title: 'ทริปสุดท้าย', lines: [{ text: 'ขายังเดินไหว... มีที่หนึ่งที่อยากไปมาตลอดชีวิต' }],
       choices: [
@@ -167,7 +169,8 @@ export const LATER: Scene[] = [
 export const LOVE2: Scene[] = [
   {
     id: 'love_work', age: 29, bg: 'office', title: 'คนในออฟฟิศ', cast: ['me'],
-    when: (s) => !has(s, 'partner') && !!s.career && s.career !== 'monk',
+    // อาชีพอิสระไม่มีแผนก/เพื่อนร่วมงาน → ไม่มีรักในออฟฟิศ
+    when: (s) => !has(s, 'partner') && !!s.career && !SELF_EMPLOYED.includes(s.career),
     lines: (s) => [{ text: `${mateWord(s)} เพื่อนร่วมงานแผนกข้าง ๆ เอากาแฟมาวางให้ทุกเช้ามาสามเดือนแล้ว... วันนี้มีโน้ตแปะมาด้วย "เย็นนี้ว่างไหม?"` }],
     choices: [
       { text: '💕 ไปกินข้าวเย็นด้วย', flags: ['partner', 'mate'], effects: { love: 4, happy: 2 }, memory: 'เริ่มคบกับเพื่อนร่วมงานที่ชื่อ{fah}', result: R('ข้าวเย็นมื้อนั้นยาวสี่ชั่วโมง... ร้านต้องไล่ปิด') },

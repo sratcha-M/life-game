@@ -1,4 +1,5 @@
 import { fmtBaht, married, netWorth } from './finance'
+import { SELF_EMPLOYED } from './careers'
 import type { GameState, Scene } from './types'
 
 const has = (s: GameState, f: string) => s.flags.includes(f)
@@ -45,7 +46,7 @@ export const LIFE: Scene[] = [
   {
     id: 'crypto', age: 44, bg: 'office', title: 'เหรียญมหัศจรรย์', chance: 0.7,
     cast: ['me'],
-    lines: [{ text: 'ทุกคนในออฟฟิศพูดถึงเหรียญคริปโตตัวใหม่ "ขึ้นมา 50 เท่าแล้ว!"' }],
+    lines: (s) => [{ text: `ทุกคน${s.career && !SELF_EMPLOYED.includes(s.career) ? 'ในที่ทำงาน' : 'ในกลุ่มไลน์'}พูดถึงเหรียญคริปโตตัวใหม่ "ขึ้นมา 50 เท่าแล้ว!"` }],
     choices: [
       { text: '🙈 ไม่ยุ่ง', effects: { smart: 1 }, memory: 'ไม่ตามกระแสคริปโต' },
       { text: '🪙 ลงนิดหน่อยพอ', fin: { cash: -50_000 }, outcomes: [
@@ -107,7 +108,9 @@ export const LIFE: Scene[] = [
     // แฉหัวหน้าจนโดนดำเนินคดีไปแล้ว → หัวหน้าคนนั้นไม่อยู่มาโยนความผิดให้อีก
     when: (s) => ['office', 'dev', 'teacher', 'doctor'].includes(s.career ?? '') && !has(s, 'exposed_boss'),
     cast: ['boss', 'me'],
-    lines: [{ who: 'boss', expr: 'angry', text: 'โปรเจกต์พังเพราะคุณ! (ทั้งที่หัวหน้าสั่งเอง)' }],
+    lines: (s) => [{ who: 'boss', expr: 'angry', text: s.career === 'teacher' ? 'ผลประเมินโรงเรียนตกเพราะครูคนเดียว! (ทั้งที่ผู้อำนวยการสั่งเอง)'
+      : s.career === 'doctor' ? 'เคสนี้พลาดเพราะคุณ! (ทั้งที่หัวหน้าแผนกสั่งการรักษาเอง)'
+      : 'โปรเจกต์พังเพราะคุณ! (ทั้งที่หัวหน้าสั่งเอง)' }],
     choices: [
       { text: '😤 เถียงกลับต่อหน้าทุกคน', outcomes: [
         { chance: 0.45, flags: ['promoted'], effects: { social: 2, happy: 2 }, memory: 'สู้หัวหน้าจนได้ความยุติธรรม', result: [{ text: 'ผู้บริหารเห็นหลักฐาน หัวหน้าโดนย้าย {name} ได้ตำแหน่งแทน!' }] },

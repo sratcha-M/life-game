@@ -21,14 +21,24 @@ export const married = (s: GameState) => has(s, 'partner') && !has(s, 'divorced'
 
 export const netWorth = (s: GameState) => (s.cash ?? 0) + (s.invest ?? 0) - (s.debt ?? 0)
 
-/** ค่าสถานะ "เงิน" (0–15) คิดจากความมั่งคั่งสุทธิ */
-export function moneyStat(net: number) {
-  if (net <= 0) return 0
-  return Math.max(0, Math.min(15, Math.round((Math.log10(net) - 3) * 2.5)))
+/**
+ * ค่าสถานะ "เงิน" (0–15) คิดจากความมั่งคั่งสุทธิ "มูลค่าจริง" (หักเงินเฟ้อกลับเป็นราคาอายุ 22)
+ * 100K = 4 · 1M = 8 · 10M = 12 · 56M = 15 — เทียบผลจำลอง (scripts/sim.ts) ตอนอายุ 70: p10 ≈ 5 · p50 ≈ 10 · p99 ≈ 13
+ * (สูตรเดิม ×2.5 ไปถึง 15 ที่พันล้าน จึงแทบไม่มีใครเกิน 11)
+ */
+export function moneyStat(net: number, age = 22) {
+  const real = net / priceAt(age)
+  if (real <= 0) return 0
+  return Math.max(0, Math.min(15, Math.round((Math.log10(real) - 4) * 4)))
 }
 
-/** หน่วยเงินของ effects.money ตามช่วงวัย */
-export const moneyUnit = (age: number) => (age < 13 ? 2_000 : age < 19 ? 10_000 : age < 25 ? 30_000 : 80_000)
+/** เงินเฟ้อต่อปี — ราคาที่เขียนไว้ในเกมคือราคาปีที่เริ่มทำงาน (อายุ 22) */
+export const INFLATION = 0.025
+/** ดัชนีราคา ณ อายุนั้น (อายุ 22 = 1) — ค่าครองชีพ ค่ารักษา บำนาญ และเรื่องไม่คาดคิดโตตามนี้ */
+export const priceAt = (age: number) => Math.pow(1 + INFLATION, Math.max(0, age - 22))
+
+/** หน่วยเงินของ effects.money ตามช่วงวัย (วัยทำงานโตตามเงินเฟ้อ) */
+export const moneyUnit = (age: number) => (age < 13 ? 2_000 : age < 19 ? 10_000 : age < 25 ? 30_000 : Math.round(80_000 * priceAt(age)))
 
 export function fmtBaht(n: number, sign = false) {
   const s = sign && n > 0 ? '+' : n < 0 ? '−' : ''
@@ -58,7 +68,7 @@ export function applyFin(s: GameState, fin: Fin | undefined, moneyEff: number, a
   // ปลดหนี้หมด → บันทึกลงสมุดชีวิต
   const peak = s.debtMax || s.debt
   const history = s.debt > 0 && ns.debt === 0 && peak >= 10_000 ? [...s.history, { age, text: `🎉 ปลดหนี้หมดแล้ว! (เคยมีหนี้สูงสุด ${fmtBaht(peak)})` }] : s.history
-  return { ...ns, history, stats: { ...ns.stats, money: moneyStat(netWorth(ns)) } }
+  return { ...ns, history, stats: { ...ns.stats, money: moneyStat(netWorth(ns), age) } }
 }
 
 /** เงินเดือน (บาท/เดือน) ตามอาชีพ อายุงาน และโบนัสพิเศษ */
@@ -67,15 +77,18 @@ export function salaryOf(s: GameState, age: number): { monthly: number; label: s
   if (age < 22) return has(s, 'path_work') ? { monthly: 12_000, label: 'งานพาร์ทไทม์เต็มเวลา' } : { monthly: 2_500, label: 'งานพิเศษช่วงเรียน' }
   const c = careerById(s.career)
   // นักบวชไม่มีเงินเดือน/ไม่เกษียณ — ปัจจัยที่ญาติโยมถวายเป็นค่ายาค่าเดินทาง
-  if (s.career === 'monk') return { monthly: c!.monthly, label: 'ปัจจัยจากญาติโยม' }
+  const p = priceAt(age)
+  if (s.career === 'monk') return { monthly: Math.round(c!.monthly * p), label: 'ปัจจัยจากญาติโยม' }
   if (age >= 60) {
-    if (has(s, 'work_after_60') && c) return { monthly: Math.round(c.monthly * 0.6), label: `ทำงานต่อ (${c.name})` }
-    return { monthly: c?.pension ?? 6_000, label: c?.pension ? 'บำนาญ' : 'เบี้ยยังชีพ + เงินออม' }
+    if (has(s, 'work_after_60') && c) return { monthly: Math.round(c.monthly * 0.6 * p), label: `ทำงานต่อ (${c.name})` }
+    // บำนาญ/เบี้ยยังชีพปรับตามเงินเฟ้อ · ไม่มีบำนาญ = เบี้ยยังชีพ + ประกันสังคม/เงินออมขั้นต่ำ
+    return { monthly: Math.round((c?.pension ?? PENSION_MIN) * p), label: c?.pension ? 'บำนาญ' : 'เบี้ยยังชีพ + เงินออม' }
   }
-  if (!c) return { monthly: 15_000, label: 'งานรับจ้างทั่วไป' }
-  if (has(s, 'fired')) return { monthly: 9_000, label: 'ตกงาน (รับจ้างรายวัน)' }
+  if (!c) return { monthly: Math.round(15_000 * p), label: 'งานรับจ้างทั่วไป' }
+  if (has(s, 'fired')) return { monthly: Math.round(9_000 * p), label: 'ตกงาน (รับจ้างรายวัน)' }
   const years = Math.max(0, age - (s.careerSince ?? 22))
-  let m = c.monthly * Math.min(c.cap ?? 2, Math.pow(1 + c.growth, years))
+  // เงินเดือนเริ่มต้นตามราคาปีที่เริ่มงาน · ขึ้นอย่างน้อยเท่าเงินเฟ้อ (ชนเพดานแล้วก็ยังปรับตามค่าครองชีพ)
+  let m = c.monthly * priceAt(s.careerSince ?? 22) * Math.max(Math.min(c.cap ?? 2, Math.pow(1 + c.growth, years)), Math.pow(1 + INFLATION, years))
   if (c.id === 'athlete' && age >= 35) m *= 0.5 // หมดยุครุ่ง
   if (has(s, 'promoted')) m *= 1.4
   if (has(s, 'abroad')) m *= 1.8
@@ -83,26 +96,52 @@ export function salaryOf(s: GameState, age: number): { monthly: number; label: s
   return { monthly: Math.round(m / 100) * 100, label: c.name }
 }
 
+/** บำนาญขั้นต่ำของคนไม่มีบำนาญอาชีพ (เบี้ยยังชีพ + บำนาญประกันสังคม) บาท/เดือน */
+const PENSION_MIN = 6_000
+/** ค่าครองชีพพื้นฐานต่อปี: ต่างจังหวัด/เกษตรกร (บ้านและที่ดินของครอบครัว ปลูกผักกินเอง) ถูกกว่าในเมือง */
+export const baseCost = (s: GameState) => (rural(s) ? 130_000 : 190_000)
+/** ลูกเรียนจบ (ลูกเกิดราวอายุ 34) → พ่อแม่เลิกจ่ายค่าเลี้ยงดู */
+const KID_UNTIL = 56
+
 /** ค่าใช้จ่าย (บาท/เดือน) */
 export function livingCost(s: GameState, age: number) {
   if (age < 22) return 0
-  if (s.career === 'monk') return 2_500 // ชีวิตนักบวชเรียบง่าย อาหารจากบิณฑบาต รักษาฟรีที่ รพ.สงฆ์
-  if (age >= 60) return Math.round((150_000 + (s.stats.body <= 3 ? 80_000 : 0)) / 12)
-  let cost = 190_000
-  if (has(s, 'spender')) cost += 110_000
+  const p = priceAt(age)
+  if (s.career === 'monk') return Math.round(2_500 * p) // ชีวิตนักบวชเรียบง่าย อาหารจากบิณฑบาต รักษาฟรีที่ รพ.สงฆ์
+  // หลังเกษียณใช้น้อยลง ~25% (ไม่มีค่าเดินทางทำงาน ลูกโตแล้ว) + ค่ารักษาถ้าร่างกายอ่อนแอ
+  if (age >= 60) return Math.round(((baseCost(s) * 0.75 + (s.stats.body <= 3 ? 80_000 : 0)) * p) / 12)
+  // มีหนี้ → รัดเข็มขัด ตัดรายจ่ายฟุ่มเฟือยก่อน (นิสัยใช้เงินเก่งไม่ทำให้ติดลบถาวร)
+  const tight = s.debt > 0
+  let cost = baseCost(s)
+  if (has(s, 'spender') && !tight) cost += 110_000
   if (has(s, 'saver')) cost -= 50_000
   if (has(s, 'support')) cost += 60_000
-  if (has(s, 'kid') && age >= 34) cost += 130_000
   if (married(s)) cost -= 40_000
-  // ใช้ชีวิตตามรายได้: เงินเดือนส่วนที่เกิน 20,000 ใช้เพิ่ม ~70%
-  const extra = Math.max(0, salaryOf(s, age).monthly - 20_000) * (has(s, 'saver') ? 0.55 : has(s, 'spender') ? 0.85 : 0.7)
+  cost *= p
+  const salary = salaryOf(s, age).monthly
+  // ค่าลูก = ~20% ของรายได้ (ขั้นต่ำ 50K สูงสุด 250K ต่อปี ตามราคาปีนั้น) จนลูกเรียนจบ
+  if (has(s, 'kid') && age >= 34 && age < KID_UNTIL) cost += Math.max(50_000 * p, Math.min(250_000 * p, salary * 12 * 0.2))
+  // ใช้ชีวิตตามรายได้: เงินเดือนส่วนที่เกิน 20,000 ใช้เพิ่ม ~70% (มีหนี้ = ใช้ครึ่งเดียว)
+  const extra = Math.max(0, salary - 20_000 * p) * (tight ? 0.5 : has(s, 'saver') ? 0.55 : has(s, 'spender') ? 0.85 : 0.7)
   return Math.round(cost / 12 + extra)
 }
 
-/** รายได้/รายจ่ายต่อปี = เงินเดือน × 12 */
+/**
+ * หมดตัว (ต้องเข้าโหมดหาเงิน): วัยทำงานเงินสดเหลือไม่ถึงหมื่น
+ * นักศึกษา (19–21) ยังไม่มีค่าครองชีพ → นับว่าหมดตัวเฉพาะตอนติดหนี้ ไม่ใช่แค่เงินในกระเป๋าน้อย
+ */
+export const isBroke = (s: GameState, age: number) => s.cash < 10_000 && (age >= 22 || (age >= 19 && s.debt > 0))
+
+/** งานเสริมช่วงมีหนี้ (ขับรถรับจ้าง ขายของหลังเลิกงาน) บาท/เดือน — วัยทำงานเท่านั้น */
+export function sideGig(s: GameState, age: number) {
+  if (s.debt <= 0 || age < 22 || age >= 60 || s.career === 'monk') return 0
+  return Math.round(3_000 * priceAt(age))
+}
+
+/** รายได้/รายจ่ายต่อปี = (เงินเดือน + งานเสริม) × 12 */
 export function yearly(s: GameState, age: number) {
   const { monthly } = salaryOf(s, age)
-  return { income: monthly * 12, cost: livingCost(s, age) * 12 }
+  return { income: (monthly + sideGig(s, age)) * 12, cost: livingCost(s, age) * 12 }
 }
 
 // ───────── เรื่องไม่คาดคิด (โอกาสต่อปีจากสถิติจริง — ดู realstats.ts) ─────────
@@ -177,6 +216,12 @@ export interface YearReport {
   shock?: { icon: string; text: string; cash: number; odds: string; src: string; more: number; why?: string }
 }
 
+/** ดอกเบี้ยหนี้ต่อปี: ปกติ / หลังปรับโครงสร้างหนี้ */
+const DEBT_RATE = 0.07
+const RESTRUCTURED_RATE = 0.04
+/** เรื่องไม่คาดคิดที่คิดเงินจากรายได้/เงินสดอยู่แล้ว (ไม่ต้องคูณเงินเฟ้อ) */
+const BY_INCOME = ['layoff', 'pandemic', 'bonus', 'depress', 'scammed']
+
 /** เวลาผ่านไปจากอายุ from → to: คิดเงิน + สุ่มเรื่องไม่คาดคิด */
 export function passYears(s: GameState, from: number, to: number): { state: GameState; report: YearReport } {
   let st = { ...s, cash: s.cash ?? 0, invest: s.invest ?? 0, debt: s.debt ?? 0 }
@@ -184,9 +229,15 @@ export function passYears(s: GameState, from: number, to: number): { state: Game
   const hits: { icon: string; text: string; cash: number; odds: string; src: string; age: number; why?: string }[] = []
   for (let a = from; a < to; a++) {
     const { income, cost } = yearly(st, a)
+    // หนี้เกินสามเท่าของรายได้ทั้งปี → ธนาคารให้ปรับโครงสร้างหนี้ (ครั้งเดียวในชีวิต) ดอกเบี้ยลดจาก 7% เหลือ 4%
+    if (a >= 22 && income > 0 && st.debt > income * 3 && !has(st, 'restructured')) {
+      const text = `หนี้เกินตัว ธนาคารให้ปรับโครงสร้างหนี้ ดอกเบี้ยลดเหลือ ${RESTRUCTURED_RATE * 100}% ต่อปี`
+      hits.push({ icon: '🤝', text, cash: 0, odds: '—', src: 'game', age: a + 1 })
+      st = { ...st, flags: [...st.flags, 'restructured'], flagAt: { ...(st.flagAt ?? {}), restructured: a + 1 }, history: [...st.history, { age: a + 1, text: `🤝 ${text}` }] }
+    }
     let cash = st.cash + income - cost
-    let debt = st.debt * 1.07
-    if (debt > 0 && cash > 0) { const pay = Math.min(cash, Math.max(debt * 0.12, 60_000)); cash -= pay; debt -= pay }
+    let debt = st.debt * (1 + (has(st, 'restructured') ? RESTRUCTURED_RATE : DEBT_RATE))
+    if (debt > 0 && cash > 0) { const pay = Math.min(cash, Math.max(debt * 0.12, 60_000 * priceAt(a))); cash -= pay; debt -= pay }
     // ผลตอบแทน: เฉพาะเงินที่ตั้งใจลงหุ้น (stocks) = หุ้นไทย 50% + หุ้นโลก 50% ของปีจริงในอดีต (รวมปันผล)
     // ทรัพย์สินอื่น (บ้าน ที่ดิน ธุรกิจ ทอง มรดก) โตคงที่ 3.5%/ปี — ไม่มีเหตุการณ์ "หุ้นพุ่ง/ร่วง" ถ้าไม่เคยเลือกลงทุนหุ้น
     const m = PORTFOLIO[Math.floor(rand(st.seed, 'inv' + a) * PORTFOLIO.length)]
@@ -215,7 +266,10 @@ export function passYears(s: GameState, from: number, to: number): { state: Game
       for (const [k, v] of Object.entries(sh.effects ?? {})) stats[k as StatKey] = Math.max(0, stats[k as StatKey] + (v ?? 0))
       // นักบวชรักษาฟรีที่ รพ.สงฆ์ / บัตรทอง
       const free = st.career === 'monk' && ['dengue', 'carcrash', 'diabetes', 'heart', 'sick', 'depress', 'fall'].includes(sh.id)
-      st = applyFin({ ...st, stats, flags: [...st.flags, 'shock_' + sh.id, ...(sh.flags ?? [])], flagAt: { ...(st.flagAt ?? {}), ['shock_' + sh.id]: age }, history: [...st.history, { age, text: `${sh.icon} ${sh.text}` }] }, free ? undefined : sh.fin?.(st), 0, age)
+      // ค่ารักษา/ค่าซ่อม/มรดกเป็นราคาปีเริ่มทำงาน → คูณเงินเฟ้อ (เรื่องที่คิดจากรายได้อยู่แล้วไม่ต้องคูณซ้ำ)
+      const f = free ? undefined : sh.fin?.(st)
+      const fin = f?.cash !== undefined && !BY_INCOME.includes(sh.id) ? { ...f, cash: Math.round(f.cash * priceAt(age)) } : f
+      st = applyFin({ ...st, stats, flags: [...st.flags, 'shock_' + sh.id, ...(sh.flags ?? [])], flagAt: { ...(st.flagAt ?? {}), ['shock_' + sh.id]: age }, history: [...st.history, { age, text: `${sh.icon} ${sh.text}` }] }, fin, 0, age)
       const whys = (sh.why?.(age, prev) ?? []).filter((x): x is string => !!x)
       const ins = free ? 'นักบวชรักษาฟรีที่โรงพยาบาลสงฆ์' : sh.fin && ['carcrash', 'heart', 'sick', 'fall'].includes(sh.id) ? (has(prev, 'insured') ? 'มีประกัน เลยจ่ายเองแค่ส่วนน้อย' : 'ไม่มีประกัน จึงจ่ายเองเต็ม ๆ') : undefined
       const why = whys.length ? `เพราะ${whys.join(' และ')}` : sh.src === 'game' ? undefined : 'ไม่ได้มาจากการเลือกของคุณ — เป็นความเสี่ยงที่คนไทยทุกคนมีเท่ากัน'

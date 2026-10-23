@@ -53,8 +53,10 @@ export function onCloud(f: (s: CloudState) => void) { subs.add(f); f(state); ret
 
 // ───────── ดักการเขียน localStorage เพื่ออัปโหลดอัตโนมัติ ─────────
 const PREFIX = 'lifepath.'
-const LOCAL_ONLY = new Set(['lifepath.voice', 'lifepath.music', 'lifepath.sync.meta', 'lifepath.pid', 'lifepath.tm.pending'])
+const LOCAL_ONLY = new Set(['lifepath.voice', 'lifepath.music', 'lifepath.sync.meta', 'lifepath.pid', 'lifepath.tm.pending', 'lifepath.owner'])
 const META = 'lifepath.sync.meta'
+/** uid ของบัญชีที่เป็นเจ้าของข้อมูลในเครื่องตอนนี้ — กันข้อมูลบัญชีหนึ่งไปปนอีกบัญชีบนเครื่องเดียวกัน */
+const OWNER = 'lifepath.owner'
 const ls = (() => { try { return window.localStorage } catch { return null } })()
 const rawSet = ls ? ls.setItem.bind(ls) : null
 const rawRemove = ls ? ls.removeItem.bind(ls) : null
@@ -77,6 +79,18 @@ export function setTrialRun(on: boolean) { trialRun = on }
 if (ls && rawSet && rawRemove) {
   ls.setItem = (k: string, v: string) => { if (trialRun && k.startsWith(PREFIX) && !LOCAL_ONLY.has(k)) return; rawSet(k, v); mark(k) }
   ls.removeItem = (k: string) => { rawRemove(k); mark(k) }
+}
+
+/** ล้างข้อมูลเกมของบัญชีเดิมออกจากเครื่อง (เก็บไว้แค่ค่าตั้งค่าเครื่อง เช่น เสียง) */
+function wipeLocal() {
+  if (!ls || !rawRemove) return
+  if (timer) { clearTimeout(timer); timer = null }
+  dirty.clear()
+  const keys: string[] = []
+  for (let i = 0; i < ls.length; i++) { const k = ls.key(i)!; if (k.startsWith(PREFIX) && !LOCAL_ONLY.has(k)) keys.push(k) }
+  keys.forEach((k) => rawRemove(k))
+  rawRemove(META)
+  rawRemove(OWNER)
 }
 
 const kvRef = (uid: string, k: string) => doc(db!, 'users', uid, 'kv', k.replace(/\//g, '_'))
@@ -114,12 +128,22 @@ function merge(k: string, local: string | null, cloud: string, lt: number, ct: n
       const all = [...a, ...b].filter((r) => { const id = r.key ?? String(r.id); if (seen.has(id)) return false; seen.add(id); return true })
       return JSON.stringify(all.sort((x, y) => y.id - x.id).slice(0, 60))
     }
+    // เซฟแยกตามตระกูล: รวมทีละช่อง เก็บอันที่เล่นล่าสุด (ไม่ให้เซฟจากอีกเครื่องหายเพราะเริ่มเล่นก่อนซิงก์เสร็จ)
+    if (k === 'lifepath.families.v1') {
+      const a = JSON.parse(local || '[]') as { id: string; at: number }[], b = JSON.parse(cloud || '[]') as { id: string; at: number }[]
+      const by = new Map<string, { id: string; at: number }>()
+      for (const x of [...b, ...a]) { const o = by.get(x.id); if (!o || x.at >= o.at) by.set(x.id, x) }
+      return JSON.stringify([...by.values()].sort((x, y) => y.at - x.at))
+    }
   } catch { /* ใช้กฎเวลาแทน */ }
   return local == null || ct >= lt ? cloud : local
 }
 async function pullAndMerge(u: User) {
   if (!db || !ls) return
   set({ sync: 'syncing' })
+  // ข้อมูลในเครื่องเป็นของบัญชีอื่น (หรือไม่รู้ว่าของใคร) → ล้างทิ้งก่อน ไม่เอาไปรวมกับบัญชีนี้
+  if (ls.getItem(OWNER) !== u.uid) wipeLocal()
+  rawSet!(OWNER, u.uid)
   try {
     const snap = await getDocs(collection(db, 'users', u.uid, 'kv'))
     const meta = readMeta()
@@ -193,4 +217,8 @@ export async function resetPassword(email: string) {
 export async function logOut() {
   await flush()
   if (auth) await signOut(auth)
+  // ออกจากระบบแล้วไม่ทิ้งเซฟ/ตระกูลไว้ในเครื่องให้บัญชีถัดไปเห็น (ของจริงอยู่บนคลาวด์แล้ว)
+  // ถ้ายังอัปโหลดไม่สำเร็จ (เน็ตหลุด) เก็บไว้ก่อน — owner ยังเป็นบัญชีเดิม บัญชีอื่น login จะถูกล้างอยู่ดี
+  if (!dirty.size) wipeLocal()
+  window.dispatchEvent(new Event('lifepath-cloud-merged'))
 }

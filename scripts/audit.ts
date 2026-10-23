@@ -33,7 +33,7 @@ for (let n = 0; n < N; n++) {
     const id0 = nextSceneId(s); if (!id0) break
     const wasQuit = s.flags.includes('own_boss') || s.flags.includes('fired')
     const r = passYears(s, sc.age, getScene(id0).age)
-    if (wasQuit) for (const h of r.report.hits ?? []) if (/เลื่อนตำแหน่ง|โบนัส|ขึ้นเงินเดือน/.test(h.text)) note(`เหตุการณ์การเงินหลังลาออก: ${h.text}`, log.slice(-3).join(' → '))
+    if (wasQuit) for (const h of r.report.shock ? [r.report.shock] : []) if (/เลื่อนตำแหน่ง|โบนัส|ขึ้นเงินเดือน/.test(h.text)) note(`เหตุการณ์การเงินหลังลาออก: ${h.text}`, log.slice(-3).join(' → '))
     s = { ...r.state, sceneId: nextSceneId(r.state) ?? id0 }
   }
 }

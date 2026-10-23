@@ -76,7 +76,8 @@ export const BOND_SCENES: Scene[] = [
   },
   {
     id: 'nong_fight', age: 57, bg: 'home', title: 'มรดกของแม่',
-    when: (s) => has(s, 'met_nong') && bondOf(s, 'nong') <= 3,
+    // แบ่งมรดกได้ก็ต่อเมื่อแม่จากไปแล้ว
+    when: (s) => has(s, 'met_nong') && bondOf(s, 'nong') <= 3 && has(s, 'mom_gone'),
     because: (s) => (has(s, 'met_nong') ? 'เพราะความสัมพันธ์พี่น้องที่ร้าวมาตลอดหลายปี' : null),
     cast: ['nong', 'me'], timer: 9,
     lines: [{ who: 'nong', expr: 'angry', text: 'บ้านกับที่ดินของแม่ หนูควรได้มากกว่า เพราะหนูเป็นคนดูแลแม่!' }],

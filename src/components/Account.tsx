@@ -59,7 +59,7 @@ export function AccountModal({ onClose }: { onClose: () => void }) {
             <p className="mt-2 text-[.8125rem] text-[#8a6a76]">เข้าสู่ระบบด้วยอีเมลเดียวกันบนเครื่องไหนก็เล่นต่อได้</p>
             <div className="mt-4 grid grid-cols-2 gap-2">
               <button onClick={onClose} className="whitespace-nowrap rounded-2xl bg-[#e0707f] py-3 font-display text-white">✔️ ปิด</button>
-              <button onClick={() => { void logOut() }} className="whitespace-nowrap rounded-2xl border-2 border-[#d9c9d0] py-3 font-display text-[#5a3443]">🚪 ออกจากระบบ</button>
+              <button disabled={busy} onClick={async () => { setBusy(true); await logOut(); setBusy(false); onClose() }} className="whitespace-nowrap rounded-2xl border-2 border-[#d9c9d0] py-3 font-display text-[#5a3443] disabled:opacity-50">{busy ? '⏳ รอสักครู่...' : '🚪 ออกจากระบบ'}</button>
             </div>
           </>
         ) : (

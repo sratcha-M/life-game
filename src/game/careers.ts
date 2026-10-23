@@ -39,10 +39,10 @@ export const CAREER_LIST: Career[] = [
   { id: 'rider', icon: '🛵', name: 'ไรเดอร์ส่งอาหาร', monthly: 18_000, growth: 0.01, stat: 'body', cap: 1.3 },
   { id: 'farmer', icon: '🌾', name: 'เกษตรกร', monthly: 14_000, growth: 0.03, stat: 'body' },
   { id: 'monk', icon: '🙏', name: 'นักบวช', monthly: 3_000, growth: 0, stat: 'happy' },
-  { id: 'laity', icon: '🏠', name: 'ฆราวาส (อดีตนักบวช)', monthly: 15_000, growth: 0.02, stat: 'happy' },
+  { id: 'laity', icon: '🏠', name: 'ฆราวาส (อดีตนักบวช)', monthly: 20_000, growth: 0.03, stat: 'happy' },
 ]
 export const careerById = (id: string | null | undefined) => CAREER_LIST.find((c) => c.id === id)
 export const CAREERS: Record<string, string> = Object.fromEntries(CAREER_LIST.map((c) => [c.id, c.name]))
 export const CAREER_STAT: Record<string, StatKey> = Object.fromEntries(CAREER_LIST.map((c) => [c.id, c.stat]))
 /** อาชีพอิสระ — ไม่มีเจ้านาย ไม่มีออฟฟิศ (ไม่เจอฉากหัวหน้า/HR/เลื่อนขั้น/โดนเลิกจ้าง) */
-export const SELF_EMPLOYED = ['farmer', 'monk', 'rider', 'streamer', 'seller']
+export const SELF_EMPLOYED = ['farmer', 'monk', 'laity', 'rider', 'streamer', 'seller']

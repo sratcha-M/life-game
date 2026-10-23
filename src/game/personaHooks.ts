@@ -71,7 +71,11 @@ export const TRAIT_CHOICES: Record<string, Choice[]> = {
 }
 
 // ───────── 2) บทพูดที่เปลี่ยนตามนิสัยเด่น ─────────
-export const TRAIT_LINES: Record<string, Partial<Record<PersonaKey, Line>>> = {
+/** มีหลาน (ลูกของเรา หรือลูกของน้องฝน) */
+const hasGrandkid = (s: GameState) => s.flags.includes('kid') || s.flags.includes('met_nong')
+/** บทพูดตามนิสัย: ใส่เป็นฟังก์ชันได้ ถ้าต้องเช็คสถานะ (คืน null = ไม่ใส่บทพูดนี้) */
+type TraitLine = Line | ((s: GameState) => Line | null)
+export const TRAIT_LINES: Record<string, Partial<Record<PersonaKey, TraitLine>>> = {
   bully: {
     kind: { who: 'ton', expr: 'sad', text: '(ต้นมองมาเหมือนรู้ว่า {name} ต้องช่วยแน่ ๆ)' },
     selfish: { who: 'ton', expr: 'sad', text: '...แต่นายคงไม่ช่วยเราหรอก ใช่ไหม' },
@@ -104,7 +108,8 @@ export const TRAIT_LINES: Record<string, Partial<Record<PersonaKey, Line>>> = {
   },
   wedding: {
     kind: { who: 'mom', expr: 'happy', text: 'ลูกแม่ใจดีกับทุกคนมาตลอด วันนี้ถึงตาลูกได้รับบ้างแล้วนะ' },
-    funny: { who: 'ton', expr: 'happy', text: 'สุนทรพจน์เจ้าบ่าวเจ้าสาวต้องฮาแน่ คนนี้กวนมาตั้งแต่ ป.1' },
+    // ต้นขึ้นพูดได้เฉพาะตอนยังเป็นเพื่อนกันอยู่ (ไม่ได้แตกหักกันเรื่องฟ้า/เงิน)
+    funny: (s) => (s.stats.friend >= 2 && !s.flags.includes('betrayed') ? { who: 'ton', expr: 'happy', text: 'สุนทรพจน์เจ้าบ่าวเจ้าสาวต้องฮาแน่ คนนี้กวนมาตั้งแต่ ป.1' } : null),
     greed: { who: 'dad', text: 'งบงานแต่งพ่อดูแล้ว... ลูกคุมได้ดีกว่าพ่ออีก' },
   },
   blame: {
@@ -140,10 +145,10 @@ export const TRAIT_LINES: Record<string, Partial<Record<PersonaKey, Line>>> = {
   finale: {
     kind: { text: 'คนที่มาร่วมงานวันนี้... เกินครึ่งคือคนที่คุณเคยช่วยไว้' },
     brave: { text: 'แขกในงานเล่าวีรกรรมบ้า ๆ ของคุณกันไม่หยุด' },
-    smart: { text: 'หลานถามว่า "ทำไมคุณรู้ทุกเรื่องเลย" ทั้งงานหัวเราะ' },
+    smart: (s) => ({ text: `${hasGrandkid(s) ? 'หลาน' : 'เด็กข้างบ้าน'}ถามว่า "ทำไมคุณรู้ทุกเรื่องเลย" ทั้งงานหัวเราะ` }),
     endure: { text: 'ไม่มีใครในงานไม่เคยเห็นคุณสู้... และไม่มีใครเคยเห็นคุณยอมแพ้' },
     fragile: { text: 'คุณร้องไห้ตั้งแต่ยังไม่ได้เป่าเค้ก... และทุกคนก็ร้องตาม' },
-    funny: { text: 'เค้กรูปหน้าคุณทำหน้าทะเล้น — ไอเดียของหลาน' },
+    funny: (s) => ({ text: `เค้กรูปหน้าคุณทำหน้าทะเล้น — ไอเดียของ${hasGrandkid(s) ? 'หลาน' : 'เด็ก ๆ ข้างบ้าน'}` }),
     greed: { text: 'ของขวัญกองโต... แต่คุณมองหาแค่ใบหน้าคนที่รัก' },
     selfish: { text: 'งานเลี้ยงที่คุณจัดเอง เลือกเพลงเอง เมนูที่ชอบเองทั้งหมด' },
   },
@@ -162,7 +167,8 @@ export function withTraitLines(sc: Scene): Scene {
       lines: (s: GameState, o?: unknown) => {
         const ls = typeof base === 'function' ? (base as (s: GameState, o?: unknown) => Line[])(s, o) : base ?? []
         const t = topTrait(s)
-        const l = t && map[t]
+        const m = t && map[t]
+        const l = typeof m === 'function' ? m(s) : m
         if (!l) return ls
         return ls.length <= 1 ? [l, ...ls] : [...ls.slice(0, -1), l, ls[ls.length - 1]]
       },

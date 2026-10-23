@@ -23,7 +23,7 @@ import { careerById } from './game/careers'
 import { LIFE_FLAGS, labeledFlags } from './game/lifeflags'
 import { addPersona, personaDelta, personaPct, personaTitle } from './game/persona'
 import { discoverSecret, foundSecrets, secretNo, secretTag, SECRETS } from './game/secrets'
-import { livingCost, salaryOf } from './game/finance'
+import { isBroke, livingCost, salaryOf, sideGig } from './game/finance'
 import { ancestorOf, canPassOn, freshUnlocks, giftsOf, inheritedPersona, hasUnlock, heirloomOf, inheritanceOf, lifeRecords, recordLife, UNLOCKS, unlockedIds, type Heirloom, type LifeRecord, type Unlock } from './game/meta'
 import { ACHS, checkAchs, choiceKey, karmaOf, rebornTrait, dreamOf, DREAMS, pickFew, recordDream, TRAITS, unlockAch, unlockedAchs, type Ach } from './game/goals'
 import { musicOn, playMusic, resumeAudio, setMusicOn, sfx, type Mood } from './lib/sound'
@@ -70,7 +70,7 @@ export default function App() {
       {screen === 'title' && (
         <Title
           trial={trial}
-          latest={latest?.s ?? null}
+          latest={trial ? null : latest?.s ?? null}
           onNew={() => setScreen('setup')}
           onContinue={() => latest && start(latest.s)}
           onAlbum={() => { refresh(); setScreen('album') }}
@@ -454,7 +454,7 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
     const age = getScene(id).age
     let ng = { ...aged, sceneId: id, visited: [...(aged.visited ?? []), id] }
     // เงินสดหมดแต่ยังมีเงินลงทุน → ขายเงินลงทุนมาใช้ก่อน (ไม่ต้องไปหาเงินทั้งที่ยังมีทรัพย์สิน)
-    if (age >= 19 && ng.cash < 10_000 && ng.invest > 0) {
+    if (isBroke(ng, age) && ng.invest > 0) {
       const sell = Math.min(ng.invest, 100_000 - ng.cash)
       const keep = 1 - sell / ng.invest
       ng = { ...ng, cash: ng.cash + sell, invest: ng.invest - sell, stocks: Math.round((ng.stocks ?? 0) * keep), stockIn: Math.round((ng.stockIn ?? 0) * keep) }
@@ -462,7 +462,7 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
     }
     // เงินหมด → นับครั้ง (หมดตัวเกิน HUSTLE_MAX ครั้งทั้งที่ยังมีหนี้ = ล้มละลาย จบชีวิต)
     // โหมดทดลองเล่น: ไม่มีโหมดหาเงิน (ข้ามฉากหาเงินวัยเด็กไปแล้ว เงินขาดจะกลายเป็นหนี้เอง)
-    const broke = !ng.quick && age >= 19 && ng.cash < 10_000
+    const broke = !ng.quick && isBroke(ng, age)
     if (broke) {
       const n = (ng.hustles ?? 0) + 1
       if (n > HUSTLE_MAX && ng.debt > 0) return onEnd({ ...ng, endId: 'bankrupt', endAge: age, history: [...ng.history, { age, text: `หมดตัวเป็นครั้งที่ ${n} จนถูกฟ้องล้มละลาย` }] })
@@ -937,8 +937,9 @@ function StatsView({ s, age }: { s: GameState; age?: number }) {
       {age != null && salaryOf(s, age).monthly > 0 && (
         <div className="mt-2 rounded-2xl bg-[#f6f8f2] p-3 text-sm">
           <div className="flex justify-between"><span>💼 เงินเดือน ({salaryOf(s, age).label})</span><b className="font-display text-[#2f8f5a]">{salaryOf(s, age).monthly.toLocaleString('th-TH')} บ.</b></div>
+          {sideGig(s, age) > 0 && <div className="flex justify-between"><span>🛵 งานเสริมช่วงมีหนี้</span><b className="font-display text-[#2f8f5a]">{sideGig(s, age).toLocaleString('th-TH')} บ.</b></div>}
           <div className="flex justify-between"><span>🧾 ค่าใช้จ่าย/เดือน</span><b className="font-display text-[#c0505f]">−{livingCost(s, age).toLocaleString('th-TH')} บ.</b></div>
-          <div className="mt-1 flex justify-between border-t border-black/10 pt-1"><span>เหลือเก็บ/เดือน</span><b className="font-display">{(salaryOf(s, age).monthly - livingCost(s, age)).toLocaleString('th-TH')} บ.</b></div>
+          <div className="mt-1 flex justify-between border-t border-black/10 pt-1"><span>เหลือเก็บ/เดือน</span><b className="font-display">{(salaryOf(s, age).monthly + sideGig(s, age) - livingCost(s, age)).toLocaleString('th-TH')} บ.</b></div>
         </div>
       )}
       <h3 className="mt-5 font-display text-xl text-[#5a3443]">💗 ความสัมพันธ์</h3>

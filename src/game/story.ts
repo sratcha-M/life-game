@@ -256,7 +256,7 @@ export const SCENES: Scene[] = [
         result: [{ text: 'เซ็นสัญญากับสโมสรอาชีพ! ชื่อของ {name} เริ่มขึ้นหน้าข่าวกีฬา' }] },
       { text: '📱 ครีเอเตอร์', lock: (s) => !has(s, 'creator') && need(s, { social: 7 }), career: 'creator', effects: { social: 2, money: 2, happy: 1 }, memory: 'เป็นครีเอเตอร์',
         result: [{ text: 'ช่องของ {name} มีผู้ติดตามแตะล้านคน' }] },
-      { text: '🍜 เปิดร้านอาหารของตัวเอง', lock: (s) => !has(s, 'cook') && !has(s, 'hustle') && need(s, { money: 5 }), career: 'chef', effects: { money: 1, happy: 1 }, memory: 'เปิดร้านอาหารของตัวเอง',
+      { text: '🍜 เปิดร้านอาหารของตัวเอง', lock: (s) => !has(s, 'cook') && !has(s, 'hustle') && need(s, { money: 4 }), career: 'chef', effects: { money: 1, happy: 1 }, memory: 'เปิดร้านอาหารของตัวเอง',
         result: [{ text: 'ร้านเล็ก ๆ หน้าปากซอย คิวยาวตั้งแต่วันแรก' }] },
       { text: '📚 ครู', lock: (s) => (has(s, 'path_work') ? 'ต้องเรียนจบปริญญา' : s.stats.smart < 4 && s.stats.social < 5 ? 'ต้องมี 📘 ความรู้ 4+ หรือ 🗣️ เข้าสังคม 5+' : false), career: 'teacher', effects: { social: 1, happy: 1 }, memory: 'เป็นครู',
         result: [{ text: 'สอบบรรจุได้ที่โรงเรียนประถมแห่งหนึ่ง เด็ก ๆ เรียก "ครู{name}" กันทั้งวัน' }] },
@@ -280,7 +280,7 @@ export const SCENES: Scene[] = [
         result: [{ text: 'แคสติ้งผ่าน! ได้บทพระรองในละครหลังข่าว' }] },
       { text: '🎮 สตรีมเมอร์เกม', lock: (s) => need(s, { social: 4 }), career: 'streamer', effects: { happy: 2, body: -1 }, memory: 'เป็นสตรีมเมอร์เกม',
         result: [{ text: 'ไลฟ์เกมทุกคืน คนดูหลักพันเริ่มส่งโดเนทมา' }] },
-      { text: '📈 เทรดเดอร์', lock: (s) => need(s, { smart: 5, money: 4 }), career: 'trader', effects: { money: 2, happy: -1 }, memory: 'เป็นเทรดเดอร์',
+      { text: '📈 เทรดเดอร์', lock: (s) => need(s, { smart: 5, money: 3 }), career: 'trader', effects: { money: 2, happy: -1 }, memory: 'เป็นเทรดเดอร์',
         result: [{ text: 'จอหกจอ กราฟแดงเขียวทั้งวัน หัวใจเต้นตามตลาด' }] },
       { text: '📦 ขายของออนไลน์', career: 'seller', effects: { social: 1, money: 1 }, memory: 'ขายของออนไลน์',
         result: [{ text: 'ไลฟ์ขายของทุกคืน "CF ได้เลยค่า!" ออเดอร์เด้งไม่หยุด' }] },
@@ -351,7 +351,7 @@ export const SCENES: Scene[] = [
         result: [{ text: 'แห่ขันหมาก รดน้ำสังข์ ญาติมาครบทั้งตระกูล แม่ร้องไห้ด้วยความดีใจ' }] },
       { text: '🕯️ จัดเล็ก ๆ อบอุ่น', effects: { happy: 2, friend: 1 }, memory: 'แต่งงานเล็ก ๆ อบอุ่น',
         result: [{ text: 'งานเล็กแต่อบอุ่น มีแค่คนที่รักจริง ๆ' }] },
-      { text: '🏝️ จดทะเบียน แล้วไปเที่ยว', effects: { money: 1, happy: 2 }, memory: 'จดทะเบียนแล้วไปฮันนีมูน',
+      { text: '🏝️ จดทะเบียน แล้วไปเที่ยว', effects: { happy: 2 }, memory: 'จดทะเบียนแล้วไปฮันนีมูน',
         result: [{ text: 'ฮันนีมูนที่ทะเลใต้ ดูพระอาทิตย์ตกด้วยกันทุกเย็น' }] },
     ],
   },
@@ -365,7 +365,7 @@ export const SCENES: Scene[] = [
     choices: [
       { text: '👶 มีลูกกัน', effects: { family: 3, happy: 2, money: -2 }, flags: ['kid'], memory: 'ได้เป็นพ่อแม่คน',
         result: [{ text: 'หนึ่งปีต่อมา เสียงร้องไห้ของทารกดังขึ้นอีกครั้ง... คราวนี้ {name} เป็นคนอุ้ม' }] },
-      { text: '💑 อยู่กันสองคน', effects: { happy: 1, money: 2 }, memory: 'เลือกใช้ชีวิตคู่แบบไม่มีลูก',
+      { text: '💑 อยู่กันสองคน', effects: { happy: 1 }, memory: 'เลือกใช้ชีวิตคู่แบบไม่มีลูก',
         result: [{ text: 'ใช้ชีวิตคู่แบบอิสระ เดินทางทุกปี' }] },
       { text: '🐈 เลี้ยงแมวก่อน', effects: { happy: 2 }, flags: ['cat'], memory: 'รับแมวส้มมาเลี้ยง',
         result: [{ text: 'แมวส้มตัวอ้วนกลายเป็นเจ้าของบ้านตัวจริง' }] },
@@ -383,9 +383,9 @@ export const SCENES: Scene[] = [
         { chance: 0.55, effects: { social: 1, love: 1, happy: 1 }, memory: 'ลองเล่นแอปหาคู่ ได้เพื่อนดี ๆ เพิ่ม',
           result: [{ text: 'เดตไปหลายครั้ง ได้เพื่อนดี ๆ เพิ่มมาหลายคน ยังไม่เจอคนที่ใช่... แต่ก็ยังไม่สาย' }] },
       ] },
-      { text: '👶 รับเด็กมาเป็นลูกบุญธรรม', lock: (s) => s.stats.money < 4 && 'ต้องมี 💰 เงิน 4+', fin: { cash: -80_000 }, effects: { family: 3, happy: 2, money: -1 }, flags: ['kid', 'adopted'], memory: 'รับเด็กหญิงจากบ้านเด็กกำพร้ามาเป็นลูก',
+      { text: '👶 รับเด็กมาเป็นลูกบุญธรรม', lock: (s) => s.stats.money < 3 && 'ต้องมี 💰 เงิน 3+', fin: { cash: -80_000 }, effects: { family: 3, happy: 2, money: -1 }, flags: ['kid', 'adopted'], memory: 'รับเด็กหญิงจากบ้านเด็กกำพร้ามาเป็นลูก',
         result: [{ text: 'วันแรกที่บ้าน เด็กน้อยจับมือ {name} แน่นไม่ยอมปล่อย' }, { text: 'ครอบครัวไม่จำเป็นต้องเริ่มจากคู่รักเสมอไป' }] },
-      { text: '😎 โสดก็สุขได้', effects: { money: 2, art: 1, happy: 1 }, memory: 'มีความสุขกับชีวิตโสด',
+      { text: '😎 โสดก็สุขได้', effects: { art: 1, happy: 1 }, memory: 'มีความสุขกับชีวิตโสด',
         result: [{ text: 'ใช้ชีวิตเต็มที่ ทำทุกอย่างที่อยากทำ' }] },
       { text: '🐈 รับแมวมาเลี้ยง', effects: { happy: 2 }, flags: ['cat'], memory: 'รับแมวส้มมาเลี้ยง',
         result: [{ text: 'แมวส้มตัวอ้วนกลายเป็นเจ้าของบ้านตัวจริง' }] },
@@ -422,6 +422,8 @@ export const SCENES: Scene[] = [
     cast: ['ton', 'me'],
     lines: (s) => {
       if (has(s, 'ignored_ton')) return [{ who: 'ton', text: 'อ้อ... {name} สินะ (ยังจำเรื่องสนามเด็กเล่นได้)' }]
+      // นักบวชทำธุรกิจไม่ได้ → ต้นมาเยี่ยมที่วัดแทนการชวนเป็นหุ้นส่วน
+      if (s.stats.friend >= 5 && s.career === 'monk') return [{ who: 'ton', expr: 'happy', text: `เพื่อนรัก... เอ้ย ${s.gender === 'boy' ? 'หลวงพี่' : 'แม่ชี'}! ธุรกิจเราไปได้ดีแล้วนะ วันนี้เลยมาทำบุญ` }]
       if (s.stats.friend >= 5) return [{ who: 'ton', expr: 'happy', text: 'เพื่อนรัก! ธุรกิจเราไปได้ดี มาเป็นหุ้นส่วนกันไหม?' }]
       return [{ who: 'ton', text: 'เฮ้ย {name}! ไม่เจอกันนานเลย สบายดีไหม' }]
     },

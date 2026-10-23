@@ -18,7 +18,7 @@ import { withTraitLines } from './personaHooks'
 import { PARENT_AGE, parentGoneAt, pct, qx } from './realstats'
 import { applyFin, netWorth } from './finance'
 import { dreamNeeds, dreamOf, TRAITS } from './goals'
-import { CAREER_STAT } from './careers'
+import { CAREER_STAT, SELF_EMPLOYED } from './careers'
 export { fmtBaht, netWorth, passYears, married } from './finance'
 import type { Bonds, BondId, Choice, Ending, GameState, Gender, Line, Lines, Scene, StatKey, Stats } from './types'
 
@@ -122,6 +122,9 @@ const leftCareer = (s: GameState) => {
 /** บวช → ไม่มีแฟน ไม่มีหัวหน้า (พระไม่มีนายจ้าง) */
 const isMonk = (s: GameState) => s.career === 'monk'
 const bossScene = (sc: Scene) => (Array.isArray(sc.cast) && sc.cast.includes('boss')) || sc.bg === 'office' || sc.id.startsWith('f_hr')
+/** อาชีพอิสระ (ไรเดอร์ เกษตรกร ฯลฯ) → ไม่มีเจ้านาย/HR แต่ยังเจอฉากทั่วไปที่ฉากหลังเป็นออฟฟิศได้ (เงินเดือนแรก คริปโต ฯลฯ) */
+const selfEmployed = (s: GameState) => SELF_EMPLOYED.includes(s.career ?? '')
+const hasBoss = (sc: Scene) => (Array.isArray(sc.cast) && sc.cast.includes('boss')) || sc.id.startsWith('f_hr')
 /** ฉากที่มีพ่อ/แม่อยู่ → ไม่เกิดหลังพ่อ/แม่จากไปแล้ว */
 const mentions = (sc: Scene, who: string) => {
   if (sc.id.startsWith('mom_pass') || sc.id.startsWith('dad_pass')) return false
@@ -138,6 +141,7 @@ export function sceneAvailable(sc: Scene, s: GameState) {
   if (sc.when && !sc.when(s)) return false
   for (const w of PARENT_OF[sc.id] ?? []) if (sc.age >= parentGoneAt(s, w)) return false
   if (noBoss(s) && bossScene(sc) && !sc.id.startsWith('heir_') && !sc.id.startsWith('job_')) return false
+  if (selfEmployed(s) && hasBoss(sc) && !sc.id.startsWith('heir_') && !sc.id.startsWith('job_')) return false
   if (sc.id.startsWith('job_') && leftCareer(s)) return false
   // บวชแล้ว → ไม่มีเรื่องรัก แต่งงาน หัวหน้า ลงทุน ฯลฯ เหลือแต่ฉากที่เข้ากับชีวิตนักบวช
   if (isMonk(s) && sc.age >= (s.careerSince ?? 22) && !monkAllows(sc.id)) return false
@@ -263,7 +267,7 @@ export const ENDINGS: Ending[] = [
   { id: 'fugitive', kind: 'bad', emoji: '🏃', title: 'ผู้หลบหนี', desc: 'คุณหนีพ้นตำรวจ แต่ไม่เคยได้กลับบ้านอีกเลย' },
   { id: 'bankrupt', kind: 'bad', emoji: '📉', title: 'หนี้ท่วมหัว', desc: 'ดอกเบี้ยวิ่งเร็วกว่าคุณ ชีวิตที่เหลือคือการหนีเจ้าหนี้' },
   { id: 'overwork', kind: 'bad', emoji: '🥀', title: 'งานคือชีวิต', desc: 'คุณล้มลงที่โต๊ะทำงานกลางดึก อีเมลฉบับสุดท้ายยังส่งไม่ออก' },
-  { id: 'heart', kind: 'bad', emoji: '💔', title: 'หัวใจที่ไม่ได้ดูแล', desc: 'สัญญาณเตือนมาหลายครั้ง แต่คุณเลือกจะรอพรุ่งนี้' },
+  { id: 'heart', kind: 'bad', emoji: '🩺', title: 'ร่างกายที่ไม่ได้ดูแล', desc: 'สัญญาณเตือนมาหลายครั้ง แต่คุณเลือกจะรอพรุ่งนี้' },
   { id: 'alien', kind: 'weird', emoji: '👽', title: 'ไปเที่ยวดาวอื่น', desc: 'คุณขึ้นยานไปกับเพื่อนต่างดาว และกลายเป็นมนุษย์คนแรกบนดาว Kepler-442b' },
   { id: 'cat', kind: 'weird', emoji: '🐈', title: 'ชาตินี้ขอเป็นแมว', desc: 'นอนวันละ 16 ชั่วโมง มีคนป้อนข้าว ไม่ต้องจ่ายภาษี ชีวิตที่สมบูรณ์แบบ' },
   { id: 'ghost', kind: 'weird', emoji: '👻', title: 'เพื่อนเก่าใต้ถุนบ้าน', desc: 'คืนก่อนวันเกิดเจ็ดสิบ ยายทวดโปร่งแสงคนเดิมมายืนรอที่ปลายเตียง "ไปเที่ยวกันไหมหลาน" แล้วคุณก็เดินตามไปอย่างไม่กลัวเลย' },

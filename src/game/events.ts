@@ -1,3 +1,4 @@
+import { SELF_EMPLOYED } from './careers'
 import type { GameState, Scene } from './types'
 
 const has = (s: GameState, f: string) => s.flags.includes(f)
@@ -177,7 +178,8 @@ export const EVENTS: Scene[] = [
       { text: '🏖️ ลาพักยาวสามเดือน', effects: { happy: 3, money: -2, body: 1 }, memory: 'ลาพักยาวเพราะหมดไฟ', result: [{ text: 'ได้กลับมาหายใจเต็มปอดอีกครั้ง' }] },
       { text: '🧘 ไปบวช / ปฏิบัติธรรม', effects: { happy: 4, smart: 1, money: -1 }, memory: 'ไปบวชตอนหมดไฟ', result: [{ text: 'ความเงียบในวัดตอบคำถามที่หาไม่เจอมาทั้งชีวิต' }] },
       { text: '☕ กาแฟอีกแก้ว ทำต่อ', hint: 'เสี่ยง', outcomes: [
-        { chance: 0.55, effects: { money: 3, happy: -2, body: -2 }, memory: 'ฝืนทำงานจนได้เลื่อนตำแหน่ง', result: [{ text: 'โปรเจกต์สำเร็จ ได้เลื่อนตำแหน่ง... แต่ร่างกายทรุดลงชัดเจน' }] },
+        { chance: 0.55, effects: { money: 3, happy: -2, body: -2 }, memory: 'ฝืนทำงานหนักจนงานสำเร็จ',
+          result: (s) => [{ text: SELF_EMPLOYED.includes(s.career ?? '') ? 'งานเสร็จทันกำหนด รายได้ปีนี้พุ่ง... แต่ร่างกายทรุดลงชัดเจน' : 'โปรเจกต์สำเร็จ ได้เลื่อนตำแหน่ง... แต่ร่างกายทรุดลงชัดเจน' }] },
         { chance: 0.45, end: 'overwork', memory: 'หัวใจหยุดเต้นที่โต๊ะทำงาน', result: [{ text: 'แก้วกาแฟหล่นลงพื้น... หน้าจอยังเปิดค้างอยู่จนเช้า' }] },
       ] },
     ],
