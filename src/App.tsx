@@ -1252,7 +1252,7 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
           <div className="popin rounded-3xl bg-white/95 p-5 shadow-2xl sm:p-6">
             <div className="flex flex-wrap items-center gap-1.5 text-[.8125rem] text-[#8a6a76]">
               <span className={`whitespace-nowrap rounded-full px-2.5 py-0.5 font-semibold ${tag.c}`}>{tag.t}</span>
-              {isNew && <span className="whitespace-nowrap rounded-full bg-[#ffd166] px-2.5 py-0.5 font-semibold text-[#6a4a00]">✨ ฉากจบใหม่!</span>}
+              {isNew && !s.quick && <span className="whitespace-nowrap rounded-full bg-[#ffd166] px-2.5 py-0.5 font-semibold text-[#6a4a00]">✨ ฉากจบใหม่!</span>}
               <span className="whitespace-nowrap">ชีวิตของ {s.name} · {early ? `จากไปตอนอายุ ${age} ปี` : `${age} ปี`}</span>
             </div>
             <h2 className="mt-2 font-display text-3xl leading-snug text-[#5a3443] sm:text-4xl">{ending.emoji} {ending.title}</h2>
@@ -1301,19 +1301,18 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
           <FeedbackBox s={s} ending={ending} age={age} />
 
           {/* ───── ไปต่อ ───── */}
-          <div className="rounded-3xl bg-white/90 p-4 shadow-xl sm:p-5">
-            <div className="grid grid-cols-2 gap-2">
+          <div className="flex flex-col rounded-3xl bg-white/90 p-4 shadow-xl sm:p-5">
+            <div className={`grid grid-cols-2 gap-2 ${s.quick ? 'order-2 mt-4' : ''}`}>
               <button onClick={onAgain} className="whitespace-nowrap rounded-2xl border-2 border-[#e0707f] bg-white/70 px-3 py-3 font-display text-base text-[#c0505f] transition hover:bg-[#fdf3f5] active:scale-95">✨ เริ่มชีวิตใหม่</button>
               <button onClick={onTitle} className="whitespace-nowrap rounded-2xl border-2 border-[#d9c9d0] bg-white/70 px-3 py-3 font-display text-base text-[#5a3443] transition hover:bg-[#f6f2f4] active:scale-95">🏠 หน้าแรก</button>
             </div>
             {s.quick ? (
-              <div className="popin mt-4 rounded-2xl bg-[#2b2238] p-4 text-[#f3e6ff]" style={{ animationDelay: '.6s' }}>
+              <div className="popin order-1 rounded-2xl bg-[#2b2238] p-4 text-[#f3e6ff]" style={{ animationDelay: '.6s' }}>
                 <div className="font-display text-lg text-[#ffd166]">⚡ นี่เป็นแค่ชีวิตฉบับทดลอง</div>
-                <div className="mt-1 text-sm leading-relaxed">ยังมีเกมที่มีรายละเอียดเยอะกว่านี้อีกมาก — เหตุการณ์สุ่ม ความลับ ความฝันของชีวิต เส้นเรื่องเพื่อน คนรัก และงาน</div>
+                <div className="mt-1 text-sm leading-relaxed">ฉากจบ ถ้วย และอัลบั้มของรอบนี้ไม่ได้ถูกเก็บไว้ — เข้าสู่ระบบเพื่อสะสมได้จริง</div>
                 <ul className="mt-2 flex flex-col gap-1 text-sm">
-                  <li>☁️ เก็บเซฟ อัลบั้มชีวิต และของสะสมไว้บนคลาวด์ เล่นต่อได้ทุกเครื่อง</li>
-                  <li>🧬 สร้างตระกูลของตัวเอง ส่งต่อมรดกให้ลูกหลานรุ่นต่อรุ่น</li>
-                  <li>♾️ ไปเกิดชาติที่ 2 พร้อมกรรมจากชาตินี้</li>
+                  <li>☁️ เก็บเซฟและอัลบั้มชีวิตไว้บนคลาวด์ เล่นต่อได้ทุกเครื่อง</li>
+                  <li>🧬 สร้างตระกูล ส่งต่อมรดก และไปเกิดชาติที่ 2</li>
                 </ul>
                 <button onClick={() => { sfx('tap'); setLogin(true) }} className="mt-3 w-full whitespace-nowrap rounded-2xl bg-[#ffd166] px-5 py-3 font-display text-lg text-[#3a2433] shadow-lg active:scale-95">🔓 เข้าสู่ระบบ / สมัครฟรี</button>
                 <div className="mt-2 text-center text-[.75rem] text-[#cbb8e0]">เข้าสู่ระบบแล้วกด "✨ เริ่มชีวิตใหม่" เพื่อเล่นเกมเต็ม</div>
@@ -1346,13 +1345,13 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
             )}
             </>}
             {login && <div className="fixed inset-0 z-50"><AccountModal onClose={() => setLogin(false)} /></div>}
-            {newUnl.length > 0 && (
+            {!s.quick && newUnl.length > 0 && (
               <div className="popin mt-3 rounded-2xl border-2 border-[#ffd166] bg-[#2b2238] p-3 text-white" style={{ animationDelay: '.8s' }}>
                 <div className="font-display text-[#ffd166]">🎁 ปลดล็อกของใหม่!</div>
                 <div className="mt-1 flex flex-wrap gap-2">{newUnl.map((u) => <span key={u.id} className="rounded-full bg-white/15 px-3 py-1 text-sm">{u.icon} {u.name}</span>)}</div>
               </div>
             )}
-            {newAchs.length > 0 && (
+            {!s.quick && newAchs.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
                 {newAchs.map((a) => <span key={a.id} className="popin rounded-full bg-[#2b2238] px-3 py-1 text-sm text-white">🏆 {a.icon} {a.name}</span>)}
               </div>
@@ -1375,8 +1374,8 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
               </div>
             )}
             <EndingWhy s={s} ending={ending} />
-            <RoadsNotTaken s={s} />
-            {s.lineage?.length ? <FamilyTree lineage={s.lineage} me={{ name: s.name, emoji: ending.emoji, age }} /> : null}
+            {!s.quick && <RoadsNotTaken s={s} />}
+            {!s.quick && s.lineage?.length ?<FamilyTree lineage={s.lineage} me={{ name: s.name, emoji: ending.emoji, age }} /> : null}
             <div className="mt-5"><LifeLog s={s} collapsible /></div>
           </div>
         </div>
