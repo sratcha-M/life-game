@@ -183,7 +183,7 @@ export const EVENTS: Scene[] = [
     ],
   },
   {
-    id: 'chestpain', age: 58, bg: 'home', title: 'เจ็บหน้าอกกลางดึก', timer: 6,
+    id: 'chestpain', mood: 'sad', age: 58, bg: 'home', title: 'เจ็บหน้าอกกลางดึก', timer: 6,
     when: (s) => s.stats.body <= 3,
     cast: ['me'],
     lines: [{ who: 'me', expr: 'sad', text: 'แน่นหน้าอก ร้าวไปถึงแขนซ้าย... เหงื่อออกเต็มตัว' }],

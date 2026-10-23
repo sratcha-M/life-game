@@ -8,13 +8,13 @@ const R = (text: string, who?: CharId): Line[] => [{ text, who }]
 const mateWord = (s: GameState) => (s.gender === 'girl' ? 'ภพ' : 'แพร')
 
 // ═════════ ช่องเวลากลาง–ปลายชีวิต: ทุกช่องเกิดแน่ 1 เรื่อง สุ่มจากตัวเลือกที่ "เข้ากับชีวิตตอนนั้น" ═════════
-interface Opt { id: string; bg: BgId; cast: CharId[] | ((s: GameState) => CharId[]); title: string; cond?: (s: GameState) => boolean; lines: Line[] | ((s: GameState) => Line[]); choices: Choice[] }
+interface Opt { id: string; mood?: 'sad'; bg: BgId; cast: CharId[] | ((s: GameState) => CharId[]); title: string; cond?: (s: GameState) => boolean; lines: Line[] | ((s: GameState) => Line[]); choices: Choice[] }
 function slot(key: string, age: number, opts: Opt[]): Scene[] {
   const pick = (s: GameState) => {
     const ok = opts.map((o, i) => (!o.cond || o.cond(s) ? i : -1)).filter((i) => i >= 0)
     return ok.length ? ok[Math.floor(rand(s.seed, 'slot' + key) * ok.length)] : -1
   }
-  return opts.map((o, i) => ({ id: `life_${o.id}`, age, bg: o.bg, cast: o.cast, title: o.title, when: (s: GameState) => pick(s) === i, lines: o.lines, choices: o.choices }))
+  return opts.map((o, i) => ({ id: `life_${o.id}`, age, mood: o.mood, bg: o.bg, cast: o.cast, title: o.title, when: (s: GameState) => pick(s) === i, lines: o.lines, choices: o.choices }))
 }
 
 export const LATER: Scene[] = [
@@ -86,7 +86,7 @@ export const LATER: Scene[] = [
         { text: '📸 ถ่ายรูปจนแบตหมด', effects: { family: 3, happy: 3 }, memory: 'ไปงานรับปริญญาของลูก', result: R('รูปที่ลูกอุ้มดอกไม้ยิ้มกว้าง... กลายเป็นวอลเปเปอร์มือถือไปอีกสิบปี') },
         { text: '💌 เขียนจดหมายให้ลูก', effects: { family: 3, art: 1 }, flags: ['kid_kind'], memory: 'เขียนจดหมายยาวให้ลูกในวันรับปริญญา', result: R('ลูกอ่านจบแล้วร้องไห้กลางมหาลัย... เก็บจดหมายไว้ในกระเป๋าสตางค์ตลอดไป') },
       ] },
-    { id: 'friend_loss', bg: 'garden', cast: ['me'], title: 'งานศพเพื่อน', lines: [{ text: 'เพื่อนร่วมรุ่นคนแรกจากไปด้วยโรคหัวใจ... อายุเท่ากันเลย' }],
+    { id: 'friend_loss', mood: 'sad', bg: 'garden', cast: ['me'], title: 'งานศพเพื่อน', lines: [{ text: 'เพื่อนร่วมรุ่นคนแรกจากไปด้วยโรคหัวใจ... อายุเท่ากันเลย' }],
       choices: [
         { text: '📞 โทรหาเพื่อนเก่าทุกคน', effects: { friend: 2, social: 2, happy: 1 }, memory: 'โทรหาเพื่อนเก่าทุกคนหลังเพื่อนจากไป', result: R('นัดเจอกันทุกเดือนตั้งแต่นั้น "ไม่รู้จะได้เจอกันอีกกี่ครั้ง"') },
         { text: '📝 ทำรายการสิ่งที่อยากทำก่อนตาย', effects: { happy: 2 }, flags: ['dreamer'], memory: 'เขียนรายการสิ่งที่อยากทำก่อนตาย', result: R('ข้อแรก: ดูทะเลหมอกที่ภูชี้ฟ้า... ทำได้ในเดือนถัดมา') },
@@ -359,9 +359,27 @@ export const JOBLESS: Scene[] = [36, 39, 43, 47, 52].map((age): Scene => ({
   ],
 }))
 
+// ═════════ ความสุขหมดถัง: ใจที่ไม่มีแรง (ไม่ปล่อยให้ความสุข 0 ผ่านไปเฉย ๆ) ═════════
+const lastBlue = (s: GameState) => Math.max(-99, ...(s.visited ?? []).filter((id) => id.startsWith('blue_')).map((id) => Number(id.slice(5))))
+export const BLUE: Scene[] = [20, 23, 27, 32, 37, 43, 49, 56, 63].map((age): Scene => ({
+  id: `blue_${age}`, age, mood: 'sad', bg: 'home', title: '🌧️ ใจที่ไม่มีแรง', cast: ['me'],
+  when: (s) => s.stats.happy <= 1 && age - lastBlue(s) >= 8,
+  force: (s) => s.stats.happy <= 1 && age - lastBlue(s) >= 8,
+  because: (s) => `เพราะ 😊 ความสุขของคุณเหลือแค่ ${s.stats.happy} มาระยะหนึ่งแล้ว`,
+  lines: [{ who: 'me', expr: 'sad', text: 'หลายเดือนแล้วที่ตื่นมาไม่อยากลุกจากเตียง... ของที่เคยชอบก็ไม่สนุกอีกต่อไป กินไม่ลง นอนไม่หลับ' }],
+  choices: [
+    { text: '🩺 ไปพบจิตแพทย์', fin: { cash: -20_000 }, effects: { happy: 3, body: 1 }, memory: 'ยอมรับว่าป่วยซึมเศร้า และไปพบจิตแพทย์',
+      result: R('หมอบอกว่า "ดีแล้วที่มา การป่วยไม่ใช่ความอ่อนแอ" ...เดือนที่สามเริ่มกลับมายิ้มได้') },
+    { text: '📞 โทรหาคนที่ไว้ใจ', effects: { happy: 2, family: 1, friend: 1 }, memory: 'โทรระบายกับคนที่ไว้ใจตอนใจไม่ไหว',
+      result: R('เสียงปลายสายไม่ได้แก้ปัญหาทุกอย่าง แต่ทำให้รู้ว่าไม่ได้อยู่คนเดียว') },
+    { text: '😶 เก็บไว้คนเดียว', effects: { body: -2, social: -1, family: -1 }, memory: 'เก็บความเศร้าไว้คนเดียวจนร่างกายทรุด',
+      result: R('ยิ้มให้ทุกคนตามปกติ... แต่น้ำหนักหายไปห้ากิโลโดยไม่มีใครรู้') },
+  ],
+}))
+
 // ═════════ พ่อจากไป (เวลาตามตารางชีพ UN — ดู parentGoneAt) ═════════
 export const DAD_PASS: Scene = {
-  id: 'dad_pass', age: 50, bg: 'hospital', title: 'ลาก่อนพ่อ', cast: ['dad', 'me'],
+  id: 'dad_pass', mood: 'sad', age: 50, bg: 'hospital', title: 'ลาก่อนพ่อ', cast: ['dad', 'me'],
   lines: (s) => s.stats.family >= 5
     ? [{ who: 'dad', expr: 'happy', text: 'พ่อไม่เคยพูดเลยใช่ไหม... ว่าพ่อภูมิใจในตัว{name}ที่สุด' }]
     : [{ who: 'dad', expr: 'sad', text: 'มาแล้วเหรอลูก... พ่อนึกว่าจะไม่ทันได้เจอกันแล้ว' }],

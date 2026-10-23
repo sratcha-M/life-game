@@ -9,10 +9,11 @@ import { THREADS } from './threads'
 import { FLAG_SCENES } from './lifeflags'
 import { FEAR_SCENES, KARMA_SCENES, ROAD_SCENES } from './karma'
 import { JOB_SCENES } from './jobs'
-import { CROSS, DAD_PASS, HEIR, JOBLESS, LATER, LOVE2, WEIRD2 } from './later'
+import { BLUE, CROSS, DAD_PASS, HEIR, JOBLESS, LATER, LOVE2, WEIRD2 } from './later'
 import { MONK_SCENES, monkAllows, monkBans } from './monk'
 import { longevityScenes } from './longevity'
 import BASELINE from './statBaseline.json'
+import BASELINE_QUICK from './statBaselineQuick.json'
 import { withTraitLines } from './personaHooks'
 import { PARENT_AGE, parentGoneAt, pct, qx } from './realstats'
 import { applyFin, netWorth } from './finance'
@@ -69,7 +70,7 @@ function passVariants(base: Scene, who: 'mom' | 'dad'): Scene[] {
 const MOM_PASS = DRAMA.find((sc) => sc.id === 'mom_pass')!
 const PARENT_SCENES = [...passVariants(MOM_PASS, 'mom'), ...passVariants(DAD_PASS, 'dad')]
 
-export const SCENES = [...KARMA_SCENES, ...BASE, ...EVENTS, ...LIFE, ...DRAMA.filter((sc) => sc.id !== 'mom_pass'), ...PARENT_SCENES, ...BOND_SCENES, ...CARDS, ...SECRET_SCENES, ...THREADS, ...FLAG_SCENES, ...FEAR_SCENES, ...ROAD_SCENES, ...JOB_SCENES, ...MONK_SCENES, ...LATER, ...LOVE2, ...CROSS, ...WEIRD2, ...HEIR, ...JOBLESS, ...longevityScenes(onLongLife)]
+export const SCENES = [...KARMA_SCENES, ...BASE, ...EVENTS, ...LIFE, ...DRAMA.filter((sc) => sc.id !== 'mom_pass'), ...PARENT_SCENES, ...BOND_SCENES, ...CARDS, ...SECRET_SCENES, ...THREADS, ...FLAG_SCENES, ...FEAR_SCENES, ...ROAD_SCENES, ...JOB_SCENES, ...MONK_SCENES, ...LATER, ...LOVE2, ...CROSS, ...WEIRD2, ...HEIR, ...JOBLESS, ...BLUE, ...longevityScenes(onLongLife)]
   .map(withTraitLines)
   .map((sc) => (BECAUSE[sc.id] && !sc.because ? { ...sc, because: BECAUSE[sc.id] } : sc))
   .map((sc) => (OPTIONAL[sc.id] !== undefined ? { ...sc, chance: OPTIONAL[sc.id] * 0.8 } : sc))
@@ -77,7 +78,10 @@ export const SCENES = [...KARMA_SCENES, ...BASE, ...EVENTS, ...LIFE, ...DRAMA.fi
 
 export { CAREERS } from './careers'
 
-export function newGame(name: string, gender: Gender, hair: string, traitId?: string, dream?: string): GameState {
+/** โหมดทดลองเล่น: ฉากหลักของชีวิตเท่านั้น (~15 ฉาก) */
+const QUICK = new Set(['birth', 'birth_taxi', 'birth_storm', 'grab', 'kinder', 'bully', 'club', 'crush', 'tcas', 'uni', 'street', 'career', 'love', 'wedding', 'kids', 'single', 'midlife', 'retire', 'finale'])
+
+export function newGame(name: string, gender: Gender, hair: string, traitId?: string, dream?: string, quick?: boolean): GameState {
   const g: GameState = {
     name, gender, hair,
     stats: { smart: 1, body: 1, art: 1, social: 1, happy: 5, money: 1, family: 3, friend: 0, love: 0 },
@@ -85,6 +89,7 @@ export function newGame(name: string, gender: Gender, hair: string, traitId?: st
     seed: Math.floor(Math.random() * 1e9),
     cash: 2_000, invest: 0, debt: 0, dream, trait: traitId, bonds: {},
     avoid: lastScenes(),
+    ...(quick ? { quick } : {}),
   }
   g.sceneId = SCENES.find((sc) => sceneAvailable(sc, g))?.id ?? SCENES[0].id
   const t = TRAITS.find((x) => x.id === traitId)
@@ -109,6 +114,11 @@ export const getScene = (id: string) => SCENES.find((s) => s.id === id)!
 
 /** ตกงาน/เป็นนายตัวเอง → ไม่มีเจ้านาย ไม่มีออฟฟิศ */
 const noBoss = (s: GameState) => s.flags.includes('fired') || s.flags.includes('own_boss') || isMonk(s)
+/** ลาออก/โดนไล่ออก/ไปเป็นนายตัวเองหลังเริ่มอาชีพปัจจุบัน → ไม่มีฉากอาชีพเดิมอีก (ถ้าได้อาชีพใหม่ทีหลัง ฉากอาชีพใหม่ยังมีตามปกติ) */
+const leftCareer = (s: GameState) => {
+  const at = (['fired', 'own_boss'] as const).filter((f) => s.flags.includes(f)).map((f) => s.flagAt?.[f] ?? 0)
+  return at.length > 0 && Math.min(...at) >= (s.careerSince ?? 0)
+}
 /** บวช → ไม่มีแฟน ไม่มีหัวหน้า (พระไม่มีนายจ้าง) */
 const isMonk = (s: GameState) => s.career === 'monk'
 const bossScene = (sc: Scene) => (Array.isArray(sc.cast) && sc.cast.includes('boss')) || sc.bg === 'office' || sc.id.startsWith('f_hr')
@@ -124,9 +134,11 @@ const PARENT_OF: Record<string, ('mom' | 'dad')[]> = Object.fromEntries(
   SCENES.map((sc) => [sc.id, (['mom', 'dad'] as const).filter((w) => sc.age >= 30 && mentions(sc, w))]).filter(([, w]) => (w as string[]).length),
 )
 export function sceneAvailable(sc: Scene, s: GameState) {
+  if (s.quick && !QUICK.has(sc.id)) return false
   if (sc.when && !sc.when(s)) return false
   for (const w of PARENT_OF[sc.id] ?? []) if (sc.age >= parentGoneAt(s, w)) return false
   if (noBoss(s) && bossScene(sc) && !sc.id.startsWith('heir_') && !sc.id.startsWith('job_')) return false
+  if (sc.id.startsWith('job_') && leftCareer(s)) return false
   // บวชแล้ว → ไม่มีเรื่องรัก แต่งงาน หัวหน้า ลงทุน ฯลฯ เหลือแต่ฉากที่เข้ากับชีวิตนักบวช
   if (isMonk(s) && sc.age >= (s.careerSince ?? 22) && !monkAllows(sc.id)) return false
   // ฉากที่บังคับ หรือเป็นประตูสู่ความฝันที่เลือกไว้ → เกิดแน่นอน (ทุกความฝันต้องมีทางไปถึง)
@@ -269,7 +281,7 @@ export const ENDINGS: Ending[] = [
 const RANKED: StatKey[] = ['smart', 'body', 'art', 'social', 'happy', 'money', 'family', 'friend', 'love']
 export function statProfile(s: GameState) {
   const st = s.stats
-  const base = BASELINE as Record<string, number>
+  const base = (s.quick ? BASELINE_QUICK : BASELINE) as Record<string, number>
   /** คะแนนเทียบชีวิตทั่วไป: 1.0 = เท่าค่าปกติตอนอายุ 70 (ดู scripts/calibrate.ts) */
   const score = (k: StatKey) => (st[k] + 4) / (Math.max(1, base[k] ?? 1) + 4)
   const vals = RANKED.map(score).sort((a, b) => a - b)
@@ -312,7 +324,11 @@ export function endingRules(s: GameState): EndRule[] {
     ] },
     { id: 'regret', bad: true, checks: [isLow('happy', 3), isLow('family', 3)] },
     { id: 'lonelyrich', bad: true, checks: [isLead('money'), below('family'), below('love')] },
-    { id: 'legend', checks: cs ? [{ ...isLead(cs), label: `⭐ ทักษะอาชีพ (${name(cs)}) เด่นอันดับ 1 (ตอนนี้อันดับ ${P.rank(cs)})`, ok: P.lead(cs) && P.rank(cs) === 1 }] : [{ label: '⭐ ต้องมีอาชีพก่อน', ok: false }] },
+    { id: 'legend', checks: cs ? [
+      { ...isLead(cs), label: `⭐ ทักษะอาชีพ (${name(cs)}) เด่นอันดับ 1 (ตอนนี้อันดับ ${P.rank(cs)})`, ok: P.lead(cs) && P.rank(cs) === 1 },
+      { label: '💼 ไม่เคยถูกเลิกจ้างหรือไล่ออกระหว่างอาชีพนี้', ok: !(['fired', 'shock_layoff'] as const).some((f) => has(f) && (s.flagAt?.[f] ?? 99) >= (s.careerSince ?? 0)) },
+      { label: `💰 ฐานะไม่พัง: เงินไม่อยู่ 2 อันดับท้าย (ตอนนี้อันดับ ${P.low('money')} จากท้าย)`, ok: P.low('money') > 2 },
+    ] : [{ label: '⭐ ต้องมีอาชีพก่อน', ok: false }] },
     { id: 'home', checks: [{ label: '🌾 ตัดสินใจกลับไปอยู่บ้านเกิดตอนเกษียณ', ok: has('retire_farm') }, { label: '🏡 มีรากที่ต่างจังหวัด / เป็นชาวนา', ok: has('countryside') || s.career === 'farmer' }, { label: `🏠 ครอบครัว หรือ 😊 ความสุข ติด 3 อันดับแรก (ตอนนี้อันดับ ${Math.min(P.rank('family'), P.rank('happy'))})`, ok: Math.min(P.rank('family'), P.rank('happy')) <= 3 }] },
     { id: 'family', checks: [isLead('family'), { label: '💍 มีคู่ชีวิตและไม่หย่า', ok: has('partner') && !has('divorced') }] },
     { id: 'friend', checks: [isLead('friend')] },
@@ -387,7 +403,7 @@ export function listSaves(): SaveSlot[] {
     }
   } catch { /* ignore */ }
   return xs
-    .filter((x) => x.s && (x.status === 'heir' || SCENES.some((sc) => sc.id === x.s.sceneId)))
+    .filter((x) => x.s && !x.s.quick && (x.status === 'heir' || SCENES.some((sc) => sc.id === x.s.sceneId)))
     .map((x) => ({ ...x, s: fix(x.s) }))
     .sort((a, b) => b.at - a.at)
 }

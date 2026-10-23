@@ -8,7 +8,7 @@ const MATH_Q = 8
 export type MiniKind = 'tap' | 'math' | 'catch' | 'memory' | 'timing'
 
 const INFO: Record<MiniKind, { icon: string; title: string; how: string; secs: number; color: string; dark: string; bg: string }> = {
-  tap: { icon: '🏃', title: 'วิ่งแข่งกีฬาสี!', how: 'แตะรัว ๆ ให้เร็วที่สุด', secs: 5, color: '#f4a261', dark: '#b4602a', bg: 'racetrack' },
+  tap: { icon: '🏃', title: 'วิ่งแข่ง!', how: 'แตะลู่วิ่งรัว ๆ ให้เร็วที่สุด แซงคู่แข่งเข้าเส้นชัยก่อน', secs: 5, color: '#f4a261', dark: '#b4602a', bg: 'racetrack' },
   math: { icon: '✏️', title: 'สอบเข้า ม.1', how: `มี ${MATH_Q} ข้อ ตอบได้ข้อละครั้งเดียว`, secs: 20, color: '#3f9a70', dark: '#245a42', bg: 'chalkboard' },
   catch: { icon: '🧺', title: 'เก็บเงินพาร์ทไทม์', how: 'ลากตะกร้ารับเหรียญ 🪙 หลบบิล 🧾', secs: 10, color: '#4aa3df', dark: '#24668f', bg: 'city' },
   memory: { icon: '🧠', title: 'เกมจับคู่', how: 'เปิดการ์ดจับคู่ให้ครบ', secs: 25, color: '#9b7fd1', dark: '#5e4796', bg: 'classroom' },
@@ -16,7 +16,7 @@ const INFO: Record<MiniKind, { icon: string; title: string; how: string; secs: n
 }
 
 /** มินิเกม: เรียก onDone(score 0–1) เมื่อจบ */
-export function MiniGame({ kind, onDone, title, icon, how }: { kind: MiniKind; onDone: (score: number) => void; title?: string; icon?: string; how?: string }) {
+export function MiniGame({ kind, onDone, title, icon, how, story }: { kind: MiniKind; onDone: (score: number) => void; title?: string; icon?: string; how?: string; story?: string }) {
   const info = { ...INFO[kind], ...(title ? { title } : {}), ...(icon ? { icon } : {}), ...(how ? { how } : {}) }
   const [stage, setStage] = useState<'intro' | 'count' | 'play' | 'done'>('intro')
   const [count, setCount] = useState(3)
@@ -27,12 +27,6 @@ export function MiniGame({ kind, onDone, title, icon, how }: { kind: MiniKind; o
   const doneRef = useRef(onDone)
   doneRef.current = onDone
 
-  // เริ่มเองถ้าไม่แตะ
-  useEffect(() => {
-    if (stage !== 'intro') return
-    const t = setTimeout(() => setStage('count'), 2500)
-    return () => clearTimeout(t)
-  }, [stage])
   useEffect(() => {
     if (stage !== 'count') return
     if (count <= 0) { setStage('play'); return }
@@ -83,12 +77,12 @@ export function MiniGame({ kind, onDone, title, icon, how }: { kind: MiniKind; o
         <div className="p-4">
           {stage === 'intro' && (
             <button className="popin flex w-full flex-col items-center gap-3 py-4" onClick={() => setStage('count')}>
+              {story && <span className="font-display text-lg leading-snug text-[#3a2433]">{story}</span>}
               <span className="bob flex h-28 w-28 items-center justify-center rounded-full text-7xl shadow-inner" style={{ background: 'radial-gradient(circle, #fff 30%, color-mix(in srgb, var(--mg) 30%, #fff))' }}>{info.icon}</span>
-              <span className="rounded-full bg-[#f3ebe6] px-4 py-1.5 text-[#5a3443]">👆 {info.how}</span>
+              <span className="rounded-2xl bg-[#f3ebe6] px-4 py-1.5 text-[#5a3443]">👆 วิธีเล่น: {info.how}</span>
               <span className="text-sm text-[#9a7a86]">⏰ {info.secs} วินาที</span>
               <span className="relative mt-1 w-full max-w-60 overflow-hidden rounded-2xl py-3 font-display text-xl text-white shadow-lg transition active:scale-95" style={{ background: 'var(--mg)', boxShadow: '0 5px 0 var(--mg-dark)' }}>
-                <span className="absolute inset-y-0 left-0 bg-white/25" style={{ animation: 'grow 2.5s linear both' }} />
-                <span className="relative">เริ่มเลย!</span>
+                <span className="relative">พร้อมแล้ว เริ่มเลย!</span>
               </span>
             </button>
           )}

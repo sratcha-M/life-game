@@ -29,7 +29,7 @@ export function longevityScenes(onRoute: (s: GameState) => boolean): Scene[] {
       ],
     },
     {
-      id: 'long_90', age: 90, bg: 'village', title: 'คนสุดท้ายของรุ่น', cast: ['me'], when: onRoute,
+      id: 'long_90', mood: 'sad', age: 90, bg: 'village', title: 'คนสุดท้ายของรุ่น', cast: ['me'], when: onRoute,
       because: (s) => `📊 ตารางชีพ UN: จากอายุ 70 อยู่ถึง 90 ได้ราว ${pct(survive(s, 70, 90))} — เพื่อนรุ่นเดียวกันส่วนใหญ่จากไปก่อนแล้ว`,
       lines: [{ text: 'งานศพเพื่อนร่วมรุ่นคนสุดท้าย... ในรูปหมู่สมัยเรียน เหลือคุณยิ้มอยู่คนเดียว' }],
       choices: [

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Background } from './art/Background'
-import { Character, NAMES } from './art/Character'
+import { Character, NAMES, kidName } from './art/Character'
 import {
   applyChoice, CAREERS, dropSave, fmtBaht, listSaves, netWorth, passYears, married, ENDINGS, fillText, getScene, HIDDEN_LABEL, newGame, nextSceneId, slotId, type SaveSlot,
   partnerName, pickEnding, endAgeOf, statProfile, nearestEndings, endingRules, weirdRules, rememberScenes, resolveLines, save, STAT_INFO, unlockedEndings, unlockEnding, visibleChoices,
@@ -12,11 +12,12 @@ import { DebtBar, HustleMode, type HustleResult } from './components/HustleMode'
 import { charAge } from './art/Character'
 import { endingArtOf } from './art/endingArt'
 import { personaSentence } from './game/personaHooks'
-import { AccountButton } from './components/Account'
+import { AccountButton, AccountModal } from './components/Account'
+import { cloudReady, cloudState, onCloud, setTrialRun } from './lib/cloud'
 import { PARENT_AGE, pct, qx, SOURCES } from './game/realstats'
 import { MARKET_BASIS, SHOCKS } from './game/finance'
 import { hasThaiVoice, isSpeaking, setVoiceOn, speak, stopVoice, tick, voiceOn, voiceSupported } from './lib/voice'
-import type { BondId, CharId, Choice, Ending, GameState, Gender, Line, PastLife, StatKey } from './game/types'
+import type { BondId, CharId, Choice, Ending, Expr, GameState, Gender, Line, PastLife, StatKey } from './game/types'
 import { BOND_INFO, bondOf } from './game/bonds'
 import { careerById } from './game/careers'
 import { LIFE_FLAGS, labeledFlags } from './game/lifeflags'
@@ -35,19 +36,28 @@ import { drawLifeCard, drawRecordCard } from './lib/lifeCard'
 import { ShareCard, ShareCardModal } from './components/ShareCard'
 
 type Screen = 'title' | 'setup' | 'play' | 'ending' | 'album' | 'reborn' | 'legacy'
+/** ทดสอบโหมดทดลองเล่นบนเครื่องที่ไม่ได้ต่อ Firebase: ใส่ ?trial ท้าย URL */
+const FORCE_TRIAL = new URLSearchParams(location.search).has('trial')
+/** ยังไม่ login → เล่นได้แค่โหมดทดลอง (สั้น ~5 นาที ไม่มีตระกูล) */
+function useTrial() {
+  const [user, setUser] = useState(cloudState().user)
+  useEffect(() => onCloud((c) => setUser(c.user)), [])
+  return FORCE_TRIAL || (cloudReady && !user)
+}
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('title')
+  const trial = useTrial()
   const [game, setGame] = useState<GameState | null>(null)
   const [saves, setSaves] = useState<SaveSlot[]>(() => listSaves())
   const [legacyBack, setLegacyBack] = useState<Screen>('ending')
   const latest = saves.find((x) => x.status === 'play')
 
-  const start = (g: GameState) => { save(g); setGame(g); setScreen('play') }
+  const start = (g: GameState) => { setTrialRun(!!g.quick); save(g); setGame(g); setScreen('play') }
   const refresh = () => setSaves(listSaves())
-  const toTitle = () => { refresh(); setScreen('title') }
+  const toTitle = () => { setTrialRun(false); refresh(); setScreen('title') }
   // จบชีวิตแล้วมีลูก → เก็บไว้ในเมนูตระกูล กลับมาเล่นเป็นลูกเมื่อไรก็ได้ · ไม่มีลูก → ปิดเซฟตระกูลนั้น
-  const end = (g: GameState) => { if (canPassOn(g)) save(g, 'heir'); else dropSave(slotId(g)); setGame(g); setScreen('ending') }
+  const end = (g: GameState) => { if (canPassOn(g) && !g.quick) save(g, 'heir'); else dropSave(slotId(g)); setGame(g); setScreen('ending') }
   const open = (x: SaveSlot) => {
     if (x.status === 'play') return start(x.s)
     setGame(x.s); setLegacyBack('album'); setScreen('legacy')
@@ -59,13 +69,14 @@ export default function App() {
     <div className="relative h-full w-full select-none overflow-hidden font-body" onPointerDown={resumeAudio}>
       {screen === 'title' && (
         <Title
+          trial={trial}
           latest={latest?.s ?? null}
           onNew={() => setScreen('setup')}
           onContinue={() => latest && start(latest.s)}
           onAlbum={() => { refresh(); setScreen('album') }}
         />
       )}
-      {screen === 'setup' && <Setup onBack={toTitle} onStart={start} />}
+      {screen === 'setup' && <Setup quick={trial} onBack={toTitle} onStart={start} />}
       {screen === 'reborn' && game && <Reborn prev={game} onStart={start} />}
       {screen === 'legacy' && game && <Legacy prev={game} onStart={start} onBack={() => { if (legacyBack !== 'ending') refresh(); setScreen(legacyBack) }} />}
       {screen === 'play' && game && (
@@ -83,10 +94,10 @@ export default function App() {
 }
 
 /** ชื่อคนพูด (คู่ชีวิตอาจไม่ใช่ฟ้า) */
-const whoName = (who: CharId, s: GameState) => (who === 'me' ? s.name : who === 'fah' ? partnerName(s) : NAMES[who])
+const whoName = (who: CharId, s: GameState) => (who === 'me' ? s.name : who === 'fah' ? partnerName(s) : who === 'kid' ? kidName(s.sceneId) : NAMES[who])
 
 /* ───────────────────────── หน้าแรก ───────────────────────── */
-function Title({ latest, onNew, onContinue, onAlbum }: { latest: GameState | null; onNew: () => void; onContinue: () => void; onAlbum: () => void }) {
+function Title({ trial, latest, onNew, onContinue, onAlbum }: { trial: boolean; latest: GameState | null; onNew: () => void; onContinue: () => void; onAlbum: () => void }) {
   const hasSave = !!latest
   useEffect(() => { playMusic('title') }, [])
   return (
@@ -100,9 +111,10 @@ function Title({ latest, onNew, onContinue, onAlbum }: { latest: GameState | nul
         <p className="mt-2 max-w-md text-base text-white/90 drop-shadow sm:text-lg">ตั้งแต่แรกเกิดจนถึงวันเกิดปีที่ 70 คุณจะเติบโตเป็นใคร?</p>
         <div className="mt-6 flex w-full max-w-xs flex-col gap-3">
           {latest && <Btn primary onClick={onContinue}>▶ เล่นต่อ <span className="text-base opacity-85">· {latest.name}</span></Btn>}
-          <Btn primary={!hasSave} onClick={onNew}>✨ เริ่มชีวิตใหม่</Btn>
+          <Btn primary={!hasSave} onClick={onNew}>{trial ? <>⚡ ทดลองเล่น <span className="text-base opacity-85">· ~5 นาที</span></> : '✨ เริ่มชีวิตใหม่'}</Btn>
           <Btn onClick={onAlbum}>📸 อัลบั้มชีวิต & ของสะสม</Btn>
         </div>
+        {trial && <p className="mt-3 max-w-xs text-[.8125rem] text-white/85 drop-shadow">🔓 เข้าสู่ระบบเพื่อเล่นเต็มเรื่อง เก็บข้อมูลไว้บนคลาวด์ และสร้างตระกูลของตัวเอง</p>}
       </div>
       <div className="absolute bottom-2 right-3 z-10 text-[.6875rem] text-white/50">v{__APP_VERSION__}</div>
     </div>
@@ -122,7 +134,13 @@ function Btn({ children, onClick, primary, className = '' }: { children: React.R
 
 /* ───────────────────────── สร้างตัวละคร ───────────────────────── */
 const HAIRS = ['#2a1c18', '#5a3825', '#8a5a3c', '#c98a4a', '#6b3f7a']
-function Setup({ onBack, onStart }: { onBack: () => void; onStart: (g: GameState) => void }) {
+/** ชื่อเล่นสำหรับปุ่มสุ่ม */
+const NICKS: Record<Gender, string[]> = {
+  girl: ['มิ้นท์', 'ใบเตย', 'แพรว', 'น้ำหวาน', 'ขิม', 'ปราง', 'ฝน', 'แป้ง', 'จูน', 'เมย์', 'ไอซ์', 'ข้าวหอม', 'พลอย', 'น้ำฝน', 'กิ๊ฟ', 'มุก', 'ส้มโอ', 'บัว', 'ลูกพีช', 'ชมพู่'],
+  boy: ['ภูมิ', 'ต้นกล้า', 'บอส', 'ปั้น', 'เจได', 'กอล์ฟ', 'บิว', 'ไผ่', 'ตั้ม', 'เก่ง', 'ซัน', 'ข้าวกล้า', 'ปลื้ม', 'ฟลุ๊ค', 'โอ๊ต', 'เต้', 'ภู', 'นนท์', 'อิ่ม', 'ทะเล'],
+}
+const randNick = (g: Gender, not = '') => pickFew(NICKS[g].filter((n) => n !== not), 1)[0]
+function Setup({ quick, onBack, onStart }: { quick: boolean; onBack: () => void; onStart: (g: GameState) => void }) {
   const [name, setName] = useState('')
   const [gender, setGender] = useState<Gender>('girl')
   const [step, setStep] = useState<'who' | 'fate' | 'dream'>('who')
@@ -149,7 +167,14 @@ function Setup({ onBack, onStart }: { onBack: () => void; onStart: (g: GameState
   const preview = newGame(name || '...', gender, hair)
   const ok = name.trim().length > 0
   useEffect(() => { playMusic('title') }, [])
-  const go = () => { sfx('good'); onStart(newGame(name.trim(), gender, hair, flipped != null ? cards[flipped].id : undefined, dream ?? undefined)) }
+  // โหมดทดลองเล่น: ไม่มีขั้นเลือกความฝัน (ฉากที่พาไปถึงความฝันอยู่ในเกมเต็ม)
+  const go = () => { sfx('good'); onStart(newGame(name.trim(), gender, hair, flipped != null ? cards[flipped].id : undefined, quick ? undefined : dream ?? undefined, quick)) }
+  // 🎲 สุ่มเกิด: สุ่มเพศ ชื่อ (ถ้ายังไม่ได้พิมพ์) ไพ่ และความฝัน แล้วเกิดเลย
+  const randomBirth = () => {
+    const g: Gender = Math.random() < 0.5 ? 'girl' : 'boy'
+    sfx('good')
+    onStart(newGame(name.trim() || randNick(g), g, hair, pickFew(cards, 1)[0].id, quick ? undefined : pickFew(dreams, 1)[0].id, quick))
+  }
   return (
     <div className="fadein absolute inset-0 overflow-y-auto">
       <div className="fixed inset-0"><Background id="home" /></div>
@@ -163,12 +188,17 @@ function Setup({ onBack, onStart }: { onBack: () => void; onStart: (g: GameState
         <div key={step} className="popin w-full max-w-sm rounded-3xl bg-white/95 p-6 shadow-2xl sm:max-w-md">
           {step === 'who' && (
             <>
+              {quick && <div className="mb-3 rounded-xl bg-[#fff4d6] px-3 py-2 text-[.8125rem] leading-snug text-[#7a5a20]">⚡ <b>โหมดทดลองเล่น</b> — ชีวิตฉบับย่อ จบใน ~5 นาที · เข้าสู่ระบบเพื่อเล่นเต็มเรื่อง</div>}
               <h2 className="font-display text-2xl text-[#5a3443]">ตัวละครของคุณ</h2>
               <label className="mt-4 block text-sm font-semibold text-[#7a5a66]">ชื่อเล่น</label>
-              <input autoFocus value={name} maxLength={12} onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && ok && (sfx('tap'), setStep('fate'))}
-                placeholder="เช่น มิ้นท์, ภูมิ, ใบเตย"
-                className="mt-1 w-full rounded-xl border-2 border-[#f0d4dc] px-4 py-3 text-lg outline-none focus:border-[#e0707f]" />
+              <div className="relative mt-1">
+                <input autoFocus value={name} maxLength={12} onChange={(e) => setName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && ok && (sfx('tap'), setStep('fate'))}
+                  placeholder="เช่น มิ้นท์, ภูมิ, ใบเตย"
+                  className="w-full rounded-xl border-2 border-[#f0d4dc] py-3 pl-4 pr-14 text-lg outline-none focus:border-[#e0707f]" />
+                <button onClick={() => { sfx('tap'); setName(randNick(gender, name)) }} title="สุ่มชื่อ" aria-label="สุ่มชื่อ"
+                  className="absolute inset-y-1.5 right-1.5 rounded-lg bg-[#fde8ed] px-3 text-xl transition active:scale-90">🎲</button>
+              </div>
               <label className="mt-4 block text-sm font-semibold text-[#7a5a66]">เพศ</label>
               <div className="mt-1 grid grid-cols-2 gap-2">
                 {(['girl', 'boy'] as const).map((g) => (
@@ -183,6 +213,8 @@ function Setup({ onBack, onStart }: { onBack: () => void; onStart: (g: GameState
                 <button disabled={!ok} onClick={() => { sfx('tap'); setStep('fate') }}
                   className="flex-[2] rounded-2xl bg-[#e0707f] px-5 py-3 font-display text-lg text-white shadow-lg transition enabled:active:scale-95 disabled:opacity-40">ต่อไป →</button>
               </div>
+              <button onClick={randomBirth}
+                className="mt-3 w-full rounded-2xl border-2 border-dashed border-[#c9b6e8] py-2 font-display text-[#7b5cd6] transition active:scale-95">🎲 สุ่มเกิด <span className="font-body text-xs text-[#8a6a76]">— สุ่มเพศ ชื่อ ไพ่{quick ? '' : ' ความฝัน'} แล้วเกิดเลย</span></button>
             </>
           )}
           {step === 'fate' && (
@@ -214,8 +246,8 @@ function Setup({ onBack, onStart }: { onBack: () => void; onStart: (g: GameState
               {redraws > 0 && flipped == null && (
                 <button onClick={() => { sfx('whoosh'); setCards(dealCards()); setRedraws(0) }} className="mt-3 w-full rounded-2xl border-2 border-dashed border-[#c9b6e8] py-2 font-display text-sm text-[#7b5cd6]">🔄 สับไพ่ใหม่ (เหลือ 1 ครั้ง)</button>
               )}
-              <button disabled={flipped == null} onClick={() => { sfx('tap'); setStep('dream') }}
-                className="mt-5 w-full rounded-2xl bg-[#e0707f] px-5 py-3 font-display text-lg text-white shadow-lg transition enabled:active:scale-95 disabled:opacity-40">ต่อไป →</button>
+              <button disabled={flipped == null} onClick={() => { if (quick) return go(); sfx('tap'); setStep('dream') }}
+                className="mt-5 w-full rounded-2xl bg-[#e0707f] px-5 py-3 font-display text-lg text-white shadow-lg transition enabled:active:scale-95 disabled:opacity-40">{quick ? 'เกิด! 👶' : 'ต่อไป →'}</button>
             </>
           )}
           {step === 'dream' && (
@@ -272,6 +304,7 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
   const [voice, setVoice] = useState(voiceOn())
   const [left, setLeft] = useState<number | null>(null)
   const [react, setReact] = useState('✨')
+  const [resultTone, setResultTone] = useState(0)
   const [hustle, setHustle] = useState<{ target: number; age: number; report: ReturnType<typeof passYears>['report'] | null } | null>(null)
   const [reflect, setReflect] = useState<{ age: number; q: string; hint: string } | null>(null)
   const [reflectAsk, setReflectAsk] = useState(reflectOn())
@@ -304,7 +337,7 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
   useEffect(() => {
     if (!line) return
     const who = line.who as CharId | undefined
-    speak(fillText(line.text, s), who, who ? charAge(who, scene.age) : scene.age, s.gender, line.text)
+    speak(fillText(line.text, s), who, who ? charAge(who, scene.age, s, scene.id) : scene.age, s.gender, line.text)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [line?.text, phase, idx, voice])
   useEffect(() => () => stopVoice(), [])
@@ -331,10 +364,11 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
     setLeft(total)
     setReading(true)
     const start = Date.now()
+    const readFor = Math.min(6000, 1500 + (chars + Array.from(lines[lines.length - 1]?.text ?? '').length) * 35)
     let end = 0
     const t = setInterval(() => {
       if (!end) {
-        if (panelRef.current || isSpeaking() || Date.now() - start < 900) return
+        if (panelRef.current || isSpeaking() || Date.now() - start < readFor) return
         end = Date.now() + total * 1000
         setReading(false)
       }
@@ -394,7 +428,7 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
     const m: Mood = s.stats.happy <= 3 ? 'dark' : scene.age < 13 ? 'kid' : scene.age < 19 ? 'teen' : scene.age < 60 ? 'adult' : 'elder'
     playMusic(m)
   }, [scene.age, s.stats.happy])
-  const firstPhase = (): Phase => (scene.minigame ? 'mini' : choices.length ? 'choice' : 'lines')
+  const firstPhase = (): Phase => (scene.minigame ? 'mini' : choices.length && lines.length <= 1 ? 'choice' : 'lines')
   const toast = (text: string, good: boolean) => {
     const id = Date.now()
     setToasts((t) => [...t, { id, text, good }])
@@ -427,7 +461,8 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
       setTimeout(() => toast(`📈 เงินสดหมด → ขายทรัพย์สิน ${fmtBaht(sell)} มาใช้จ่าย (เหลือ ${fmtBaht(ng.invest)})`, false), 400)
     }
     // เงินหมด → นับครั้ง (หมดตัวเกิน HUSTLE_MAX ครั้งทั้งที่ยังมีหนี้ = ล้มละลาย จบชีวิต)
-    const broke = age >= 19 && ng.cash < 10_000
+    // โหมดทดลองเล่น: ไม่มีโหมดหาเงิน (ข้ามฉากหาเงินวัยเด็กไปแล้ว เงินขาดจะกลายเป็นหนี้เอง)
+    const broke = !ng.quick && age >= 19 && ng.cash < 10_000
     if (broke) {
       const n = (ng.hustles ?? 0) + 1
       if (n > HUSTLE_MAX && ng.debt > 0) return onEnd({ ...ng, endId: 'bankrupt', endAge: age, history: [...ng.history, { age, text: `หมดตัวเป็นครั้งที่ ${n} จนถูกฟ้องล้มละลาย` }] })
@@ -441,7 +476,7 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
     setLines(resolveLines(getScene(id).lines, ng))
     setIdx(0)
     // 🕯️ ข้ามอายุ 5/15/30/50/70 → หยุดถามคำถามถึงผู้เล่น (หลังโหมดหาเงิน ถ้ามี)
-    const r = reflectionAt(ng, scene.age, age)
+    const r = ng.quick ? null : reflectionAt(ng, scene.age, age)
     setReflect(r ? { age: r.age, q: r.q, hint: r.hint } : null)
     // เงินหมด → เข้าโหมดหาเงินก่อน
     if (broke) {
@@ -467,14 +502,19 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
     setPhase(reflect ? 'reflect' : 'card')
   }
 
+  // แตะที่ค้างมาจากจังหวะก่อน (แตะเลือกซ้ำระหว่างการ์ดปัดออก / แตะรัวข้ามผล) ห้ามข้ามข้อความที่เพิ่งขึ้น
+  const shownAt = useRef(0)
+  useEffect(() => { shownAt.current = Date.now() }, [phase, idx, s.sceneId])
   const advance = () => {
     if (panel) return
+    if (phase === 'choice' || phase === 'mini' || phase === 'hustle' || phase === 'reflect') return
+    if (Date.now() - shownAt.current < (phase === 'card' ? 400 : 700)) return
     if (phase === 'lines' || phase === 'result') sfx('tap')
     if (phase === 'card') return setPhase(firstPhase())
-    if (phase === 'choice' || phase === 'mini' || phase === 'hustle' || phase === 'reflect') return
     if (phase === 'result') return idx < lines.length - 1 ? setIdx(idx + 1) : enter(s)
+    // บรรทัดสุดท้ายคือคำถาม → แสดงพร้อมทางเลือก
+    if (phase === 'lines' && choices.length && idx >= lines.length - 2) { setIdx(lines.length - 1); return setPhase('choice') }
     if (idx < lines.length - 1) return setIdx(idx + 1)
-    if (phase === 'lines' && choices.length) return setPhase('choice')
     enter(s)
   }
 
@@ -507,12 +547,14 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
         const label = info ? `${info.icon} ${info.label}` : `💗 ${HIDDEN_LABEL[k as StatKey]}`
         return { id: now + i, text: `${label} ${v! > 0 ? '+' : ''}${v}`, good: v! > 0 }
       }),
+      ...(ns.stats.happy === 0 && s.stats.happy > 0 ? [{ id: now + 90, text: '⚠️ ความสุขเหลือ 0 — ใจเริ่มไม่ไหวแล้ว ถ้าปล่อยไว้อาจป่วยซึมเศร้า', good: false }] : []),
       ...ns.flags.filter((f) => LIFE_FLAGS[f] && !s.flags.includes(f)).map((f, i) => ({ id: now + 80 + i, text: `🚩 ปักธง: ${LIFE_FLAGS[f].icon} ${LIFE_FLAGS[f].label}`, good: LIFE_FLAGS[f].tone !== 'bad' })),
       ...Object.entries(bondDelta).filter(([, v]) => v).map(([k, v], i) => ({ id: now + 50 + i, text: `${BOND_INFO[k as BondId].icon} ${BOND_INFO[k as BondId].name} ${v! > 0 ? '+' : ''}${v}`, good: v! > 0 })),
     ])
     setTimeout(() => setToasts([]), 2700)
     // เอฟเฟกต์ตามผลลัพธ์
     const tone = Object.entries(effects).reduce((t, [, v]) => t + (v ?? 0), 0) + Math.sign(cashDelta) * Math.min(3, Math.abs(cashDelta) / 200_000)
+    setResultTone(tone)
     const endK = ns.endId ? ENDINGS.find((e) => e.id === ns.endId)?.kind : null
     if (endK === 'bad') { sfx('death'); boom('rain', { shake: true, flash: 'red' }) }
     else if (endK === 'weird') { sfx('unlock'); boom('stars', { flash: 'white' }) }
@@ -560,6 +602,11 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
     ?? (dejavu ? `👁️ เดจาวู... ชาติก่อน ${s.past!.name} ตอนอายุ ${dejavu.age}: ${dejavu.text}` : null)
     ?? (echo ? `🧬 ตอนอายุ ${echo.age} ${parent!.gender === 'girl' ? 'แม่' : 'พ่อ'}${parent!.name}เคย: ${echo.text}` : null)
   const many = cast.length >= 3
+  // สีหน้า: คนพูดตามบท · ตอนผลลัพธ์ตามว่าผลดี/ร้าย (เคยบังคับยิ้มเสมอ แม้ลูกป่วยหนัก) · ฉากเศร้า → คนอื่นหน้าเศร้าด้วย
+  const gloomy = phase === 'result' ? resultTone < 0 : scene.mood === 'sad' || scene.mark === 'fear'
+  const exprOf = (id: CharId): Expr => speaker === id && line?.expr ? line.expr
+    : phase === 'result' && id === 'me' ? (react === '⏰' ? 'surprised' : gloomy ? 'sad' : 'happy')
+    : gloomy ? 'sad' : 'neutral'
 
   return (
     <div ref={rootRef} className="absolute inset-0" onClick={advance}>
@@ -574,8 +621,7 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
               style={{ width: `min(${cast.length <= 1 ? 80 : Math.floor(104 / cast.length)}vw, 52vh, 480px)` }}>
               <div key={speaker === id ? `${idx}-${phase}` : 'idle'} className={`h-full w-full ${speaker === id ? 'hop' : ''}`}>
                 <div className="breathe h-full w-full" style={{ animationDelay: `${(id.charCodeAt(0) % 7) * 0.3}s` }}>
-                  <Character id={id} playerAge={scene.age} s={s} bg={scene.bg}
-                    expr={speaker === id ? line?.expr ?? 'neutral' : phase === 'result' && id === 'me' ? (react === '⏰' ? 'surprised' : 'happy') : 'neutral'}
+                  <Character id={id} playerAge={scene.age} s={s} bg={scene.bg} sceneId={scene.id} expr={exprOf(id)}
                     dim={!!speaker && speaker !== id} />
                 </div>
               </div>
@@ -725,7 +771,7 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
         </div>
       )}
 
-      {phase === 'mini' && scene.minigame && <MiniGame kind={scene.minigame} onDone={finishMini} />}
+      {phase === 'mini' && scene.minigame && <MiniGame kind={scene.minigame} onDone={finishMini} title={scene.title} story={lines[0] ? fillText(lines[0].text, s) : undefined} />}
       {phase === 'hustle' && hustle && <HustleMode s={s} target={hustle.target} age={hustle.age} report={hustle.report} onDone={endHustle} />}
       {phase === 'reflect' && reflect && <ReflectPause age={reflect.age} q={reflect.q} hint={reflect.hint} name={s.name} onDone={endReflect} onStop={() => { setReflectOn(false); setReflectAsk(false); endReflect('') }} />}
 
@@ -875,6 +921,7 @@ function StatsView({ s, age }: { s: GameState; age?: number }) {
           <div key={t.key}>
             <div className="flex justify-between text-sm"><span>{t.icon} {t.label}</span><span className="font-display">{s.stats[t.key]}</span></div>
             <div className="mt-1 h-3 overflow-hidden rounded-full bg-black/10"><div className="h-full rounded-full" style={{ width: `${Math.min(100, (s.stats[t.key] / 14) * 100)}%`, background: t.color }} /></div>
+            {t.key === 'happy' && s.stats.happy <= 1 && <div className="mt-1 text-[.8125rem] text-[#c0505f]">⚠️ ความสุขต่ำมาก — เสี่ยงซึมเศร้า ลองเลือกทางที่ดูแลใจตัวเองบ้าง</div>}
           </div>
         ))}
       </div>
@@ -1134,6 +1181,13 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
   const inh = inheritanceOf(s)
   const [copied, setCopied] = useState<null | 'copied' | 'shared'>(null)
   const [shareText, setShareText] = useState<string | null>(null)
+  const [login, setLogin] = useState(false)
+  useEffect(() => {
+    // จบทดลองเล่นแล้วเพิ่ง login สำเร็จ → กลับหน้าแรก (ไม่ใช่คนที่ login อยู่แล้วแต่เปิด ?trial)
+    if (!s.quick || !cloudReady || cloudState().user) return
+    return onCloud((c) => { if (c.user) onTitle() })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   useEffect(() => {
     unlockEnding(ending.id)
     logEnd(s, ending, age, dreamOk)
@@ -1216,12 +1270,17 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
             <PersonaCard s={s} />
 
             <div className="mt-4 grid grid-cols-2 gap-x-5 gap-y-2.5 sm:grid-cols-3">
-              {STAT_INFO.map((t) => (
-                <div key={t.key} className="text-[.875rem]">
-                  <div className="flex items-center justify-between gap-1"><span className="truncate">{t.icon} {t.label}</span><span className="whitespace-nowrap font-display text-[#3a2433]">{s.stats[t.key] > STAT_MAX && <span className="mr-0.5 text-[.8125rem] text-[#d4a017]">★</span>}{s.stats[t.key]}<span className="text-[.8125rem] text-[#a08a94]">/{STAT_MAX}</span></span></div>
-                  <div className={`mt-1 h-2 overflow-hidden rounded-full bg-black/10 ${s.stats[t.key] > STAT_MAX ? 'ring-2 ring-[#ffd166]' : ''}`}><div className="h-full rounded-full" style={{ width: `${Math.min(100, (s.stats[t.key] / STAT_MAX) * 100)}%`, background: t.color }} /></div>
-                </div>
-              ))}
+              {STAT_INFO.map((t) => {
+                // ค่าสถานะไม่มีเพดาน → แถบเทียบกับค่าที่สูงที่สุดของชีวิตนี้ · ★ = ค่าที่เด่นที่สุด (ใช้ตัดสินฉากจบ)
+                const top = Math.max(STAT_MAX, ...STAT_INFO.map((x) => s.stats[x.key]))
+                const star = statProfile(s).top.includes(t.key)
+                return (
+                  <div key={t.key} className="text-[.875rem]">
+                    <div className="flex items-center justify-between gap-1"><span className="truncate">{t.icon} {t.label}</span><span className="whitespace-nowrap font-display text-[#3a2433]">{star && <span className="mr-0.5 text-[.8125rem] text-[#d4a017]">★</span>}{s.stats[t.key]}</span></div>
+                    <div className={`mt-1 h-2 overflow-hidden rounded-full bg-black/10 ${star ? 'ring-2 ring-[#ffd166]' : ''}`}><div className="h-full rounded-full" style={{ width: `${Math.min(100, (s.stats[t.key] / top) * 100)}%`, background: t.color }} /></div>
+                  </div>
+                )
+              })}
             </div>
 
             <div className="mt-4 flex justify-between gap-3 rounded-2xl bg-[#fdf3f5] p-4">
@@ -1246,6 +1305,19 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
               <button onClick={onAgain} className="whitespace-nowrap rounded-2xl border-2 border-[#e0707f] bg-white/70 px-3 py-3 font-display text-base text-[#c0505f] transition hover:bg-[#fdf3f5] active:scale-95">✨ เริ่มชีวิตใหม่</button>
               <button onClick={onTitle} className="whitespace-nowrap rounded-2xl border-2 border-[#d9c9d0] bg-white/70 px-3 py-3 font-display text-base text-[#5a3443] transition hover:bg-[#f6f2f4] active:scale-95">🏠 หน้าแรก</button>
             </div>
+            {s.quick ? (
+              <div className="popin mt-4 rounded-2xl bg-[#2b2238] p-4 text-[#f3e6ff]" style={{ animationDelay: '.6s' }}>
+                <div className="font-display text-lg text-[#ffd166]">⚡ นี่เป็นแค่ชีวิตฉบับทดลอง</div>
+                <div className="mt-1 text-sm leading-relaxed">ยังมีเกมที่มีรายละเอียดเยอะกว่านี้อีกมาก — เหตุการณ์สุ่ม ความลับ ความฝันของชีวิต เส้นเรื่องเพื่อน คนรัก และงาน</div>
+                <ul className="mt-2 flex flex-col gap-1 text-sm">
+                  <li>☁️ เก็บเซฟ อัลบั้มชีวิต และของสะสมไว้บนคลาวด์ เล่นต่อได้ทุกเครื่อง</li>
+                  <li>🧬 สร้างตระกูลของตัวเอง ส่งต่อมรดกให้ลูกหลานรุ่นต่อรุ่น</li>
+                  <li>♾️ ไปเกิดชาติที่ 2 พร้อมกรรมจากชาตินี้</li>
+                </ul>
+                <button onClick={() => { sfx('tap'); setLogin(true) }} className="mt-3 w-full whitespace-nowrap rounded-2xl bg-[#ffd166] px-5 py-3 font-display text-lg text-[#3a2433] shadow-lg active:scale-95">🔓 เข้าสู่ระบบ / สมัครฟรี</button>
+                <div className="mt-2 text-center text-[.75rem] text-[#cbb8e0]">เข้าสู่ระบบแล้วกด "✨ เริ่มชีวิตใหม่" เพื่อเล่นเกมเต็ม</div>
+              </div>
+            ) : <>
             <div className="mt-3 flex flex-col gap-1 rounded-2xl bg-[#f6f2f8] px-3 py-2 text-[.8125rem] leading-[1.6] text-[#6a5a72]">
               {s.life !== 2 && <div><b className="font-display font-normal text-[#3a2433]">🔄 ไปเกิดชาติที่ 2</b> — เล่นต่อ พร้อมกรรมจากชาตินี้ติดตัวไป</div>}
               <div><b className="font-display font-normal text-[#3a2433]">✨ เริ่มชีวิตใหม่</b> — เริ่มจากศูนย์ ไม่มีอะไรจากชีวิตนี้ติดตัวไป</div>
@@ -1271,6 +1343,8 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
             ) : (
               <div className="mt-4 rounded-2xl border-2 border-dashed border-[#cfe3d6] p-3 text-sm text-[#7a8a80]">🧬 ส่งต่อรุ่นลูก: ต้องมีลูกก่อน (แต่งงานแล้วเลือก "มีลูกกัน") ตระกูลจึงจะสืบทอดต่อได้</div>
             )}
+            </>}
+            {login && <div className="fixed inset-0 z-50"><AccountModal onClose={() => setLogin(false)} /></div>}
             {newUnl.length > 0 && (
               <div className="popin mt-3 rounded-2xl border-2 border-[#ffd166] bg-[#2b2238] p-3 text-white" style={{ animationDelay: '.8s' }}>
                 <div className="font-display text-[#ffd166]">🎁 ปลดล็อกของใหม่!</div>

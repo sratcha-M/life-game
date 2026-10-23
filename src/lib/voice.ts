@@ -56,7 +56,7 @@ function tone(who: CharId | undefined, age: number, gender: Gender): [pitch: num
     case 'fah': return gender === 'girl' ? [0.95, 1.0] : [1.45, 1.05]
     case 'kru': return [1.2, 0.95]
     case 'boss': return [0.55, 0.9]
-    case 'kid': return [1.9, 1.15]
+    case 'kid': return age < 13 ? [1.9, 1.15] : [1.5, 1.05]
     case 'nong': return age < 13 ? [1.9, 1.15] : age < 40 ? [1.5, 1.05] : [1.15, 0.95]
     case 'jay': return age < 19 ? [1.4, 1.15] : [0.85, 1.05]
     case 'coco': return [2, 1.4]

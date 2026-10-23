@@ -19,7 +19,7 @@ export function AccountButton() {
   )
 }
 
-function AccountModal({ onClose }: { onClose: () => void }) {
+export function AccountModal({ onClose }: { onClose: () => void }) {
   const [cs, setCs] = useState(cloudState())
   useEffect(() => onCloud(setCs), [])
   const [mode, setMode] = useState<'in' | 'up' | 'reset'>('in')
@@ -65,7 +65,7 @@ function AccountModal({ onClose }: { onClose: () => void }) {
         ) : (
           <form onSubmit={submit}>
             <h3 className="font-display text-2xl text-[#5a3443]">{mode === 'in' ? '👤 เข้าสู่ระบบ' : mode === 'up' ? '✨ สมัครบัญชี' : '🔑 ลืมรหัสผ่าน'}</h3>
-            <p className="text-[.8125rem] text-[#8a6a76]">เก็บเซฟและอัลบั้มชีวิตไว้บนคลาวด์ เล่นต่อได้ทุกเครื่อง · ไม่ login ก็เล่นได้ตามปกติ</p>
+            <p className="text-[.8125rem] text-[#8a6a76]">เล่นเกมเต็มเรื่อง เก็บเซฟและอัลบั้มชีวิตไว้บนคลาวด์ เล่นต่อได้ทุกเครื่อง และสร้างตระกูลของตัวเอง · ไม่ login เล่นได้แค่โหมดทดลอง (~5 นาที)</p>
             {mode === 'up' && <label className="mt-3 block text-[.875rem] text-[#7a5a66]">ชื่อที่แสดง<input className={input} value={name} maxLength={20} onChange={(e) => setName(e.target.value)} /></label>}
             <label className="mt-3 block text-[.875rem] text-[#7a5a66]">อีเมล<input className={input} type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
             {mode !== 'reset' && <label className="mt-3 block text-[.875rem] text-[#7a5a66]">รหัสผ่าน{mode === 'up' && ' (อย่างน้อย 6 ตัว)'}<input className={input} type="password" autoComplete={mode === 'up' ? 'new-password' : 'current-password'} required minLength={6} value={pw} onChange={(e) => setPw(e.target.value)} /></label>}

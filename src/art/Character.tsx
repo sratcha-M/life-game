@@ -16,18 +16,29 @@ interface Look {
 }
 
 export const NAMES: Record<CharId, string> = {
-  me: '', mom: 'แม่', dad: 'พ่อ', yai: 'ยาย', ton: 'ต้น', kru: 'ครูสมศรี', fah: 'ฟ้า', boss: 'หัวหน้า', kid: 'หลานน้ำ', nong: 'น้องฝน', jay: 'เจ', coco: 'โกโก้',
+  me: '', mom: 'แม่', dad: 'พ่อ', yai: 'ยาย', ton: 'ต้น', kru: 'ครูสมศรี', fah: 'ฟ้า', boss: 'หัวหน้า', kid: 'น้ำ', nong: 'น้องฝน', jay: 'เจ', coco: 'โกโก้',
 }
 
+// ฉากที่ 'kid' ไม่ใช่ลูกของผู้เล่น (หลาน / นักเรียน) → เด็ก 7 ขวบเสมอ และใช้ชื่อตามบทบาทนั้น
+const OTHER_KID_SCENES: Record<string, string> = { ev_grandkid: 'หลานน้ำ', life_teach_grand: 'หลานน้ำ', job_teacher_a: 'นักเรียน' }
+
+/** ชื่อบนป้าย: 'kid' ส่วนใหญ่คือลูกของผู้เล่น (เรียกเราว่าพ่อแม่) → ไม่ใช่ "หลาน" */
+export const kidName = (sceneId?: string) => (sceneId && OTHER_KID_SCENES[sceneId]) || 'น้ำ'
+
 /** อายุของตัวละครแต่ละตัว เทียบกับอายุผู้เล่น */
-export function charAge(id: CharId, playerAge: number) {
+export function charAge(id: CharId, playerAge: number, s?: GameState, sceneId?: string) {
   switch (id) {
     case 'mom': return playerAge + 27
     case 'dad': return playerAge + 29
     case 'yai': return playerAge + 58
     case 'kru': return 34
     case 'boss': return 52
-    case 'kid': return 7
+    case 'kid': {
+      // ลูกโตตามจริง: เกิดหนึ่งปีหลังตัดสินใจมีลูก · ลูกบุญธรรมรับมาตอนราว 4 ขวบ
+      const at = s?.flagAt?.kid
+      if (at === undefined || (sceneId && OTHER_KID_SCENES[sceneId])) return 7
+      return Math.max(0, playerAge - at + (s!.flags.includes('adopted') ? 4 : -1))
+    }
     case 'nong': return Math.max(0, playerAge - 6)
     case 'coco': return Math.max(0, playerAge - 8)
     default: return playerAge
@@ -113,25 +124,37 @@ function grayed(hair: string, age: number) {
 const SPRITES = import.meta.glob('../assets/char/*.webp', { eager: true, import: 'default' }) as Record<string, string>
 // รูปขยาย 2 เท่าด้วย Real-ESRGAN (anime) — โหลดเฉพาะจอความละเอียดสูง จอธรรมดา/เน็ตช้ายังใช้ไฟล์เล็กเดิม
 const SPRITES_HD = import.meta.glob('../assets/char/hd/*.webp', { eager: true, import: 'default' }) as Record<string, string>
-const PIXEL_SPRITES = ['me_boy_elder']
+// ภาพเก่าแบบพิกเซลที่ยังไม่มีภาพใหม่มาแทน — วางภาพใหม่ชื่อเดิมแล้วลบออกจากรายการนี้
+const PIXEL_SPRITES: string[] = []
 const stageKey = (age: number) => (age < 3 ? 'baby' : age < 13 ? 'kid' : age < 19 ? 'teen' : age < 60 ? 'adult' : 'elder')
-export function spriteFor(id: CharId, age: number, s: GameState) {
+/**
+ * หาภาพตัวละคร — ลองภาพตามสีหน้าก่อน เช่น me_boy_adult_sad.webp ไม่มีค่อยใช้ภาพปกติ
+ * (ภาพปกติทุกภาพยิ้ม จึงต้องมีภาพ _sad / _angry / _surprised แยกถึงจะไม่ยิ้มในฉากเศร้า)
+ */
+export function spriteFor(id: CharId, age: number, s: GameState, expr: Expr = 'neutral') {
   const st = stageKey(age)
   const other = s.gender === 'girl' ? 'boy' : 'girl'
   const robed = id === 'me' && s.career === 'monk' && age >= 22
   const keys = robed ? [...(st === 'elder' ? [`me_${s.gender === 'boy' ? 'boy_monk' : 'girl_nun'}_elder`] : []), `me_${s.gender === 'boy' ? 'boy_monk' : 'girl_nun'}`]
-    : id === 'me' ? [...(age >= 19 && age < 22 ? [`me_${s.gender}_uni`] : []), `me_${s.gender}_${st}`]
+    : id === 'me' ? [...(age >= 19 && age < 22 ? [`me_${s.gender}_uni`] : []), ...(age >= 40 && age < 60 ? [`me_${s.gender}_middle`] : []), `me_${s.gender}_${st}`]
     : id === 'fah' && s.flags.includes('mate') ? [`fah_mate_${other}_${st}`, `fah_mate_${other}_adult`]
     : id === 'fah' ? [`fah_${other}_${st}`, `fah_${other}`]
+    // ลูกโตแล้ว: ยังไม่มีภาพ kid_teen/kid_adult → ยืมภาพน้องฝน (หน้าคล้ายกัน ไม่เคยอยู่ฉากเดียวกันตอนโต) ไปก่อน
+    : id === 'kid' && age >= 13 ? [`kid_${st}`, `nong_${st}`]
     : [...(age >= (id === 'ton' ? 45 : 58) ? [`${id}_elder`] : []), `${id}_${st}`, id]
-  for (const k of keys) { const url = SPRITES[`../assets/char/${k}.webp`]; if (url) return { url, hd: SPRITES_HD[`../assets/char/hd/${k}.webp`], pixel: PIXEL_SPRITES.includes(k) } }
+  for (const k of keys) {
+    for (const v of expr === 'neutral' ? [k] : [`${k}_${expr}`, k]) {
+      const url = SPRITES[`../assets/char/${v}.webp`]
+      if (url) return { url, hd: SPRITES_HD[`../assets/char/hd/${v}.webp`], pixel: PIXEL_SPRITES.includes(v), exprMatched: v !== k }
+    }
+  }
   return null
 }
 
-export function Character({ id, playerAge, s, expr = 'neutral', bg, dim }: {
-  id: CharId; playerAge: number; s: GameState; expr?: Expr; bg: string; dim?: boolean
+export function Character({ id, playerAge, s, expr = 'neutral', bg, dim, sceneId }: {
+  id: CharId; playerAge: number; s: GameState; expr?: Expr; bg: string; dim?: boolean; sceneId?: string
 }) {
-  const age = charAge(id, playerAge)
+  const age = charAge(id, playerAge, s, sceneId)
   if (id === 'coco') {
     const sp = SPRITES['../assets/char/coco.webp'], spHd = SPRITES_HD['../assets/char/hd/coco.webp']
     if (sp) return <div className="flex h-full w-full items-end justify-center"><img src={sp} srcSet={spHd ? `${sp} 1x, ${spHd} 2x` : undefined} alt="โกโก้" draggable={false} className="h-[45%] w-full object-contain object-bottom drop-shadow-[0_8px_18px_rgba(0,0,0,.25)]" style={{ filter: dim ? 'brightness(.62)' : undefined }} /></div>
@@ -141,19 +164,22 @@ export function Character({ id, playerAge, s, expr = 'neutral', bg, dim }: {
       </div>
     )
   }
-  const sprite = spriteFor(id, age, s)
+  const sprite = spriteFor(id, age, s, expr)
   if (sprite) {
     const sc = age < 3 ? 0.62 : age < 8 ? 0.8 : age < 13 ? 0.88 : age < 17 ? 0.96 : 1
+    // ยังไม่มีภาพหน้าเศร้า → อย่างน้อยลดสีให้หม่นลง ไม่สดใสเท่าฉากปกติ
+    const somber = expr === 'sad' && !sprite.exprMatched
+    const filter = [dim && 'brightness(.62) saturate(.8)', somber && 'saturate(.45) brightness(.9)'].filter(Boolean).join(' ') || undefined
     // ยึดความสูงเท่ากันทุกตัว (รูปกว้าง/แคบไม่ทำให้ตัวเล็กใหญ่ต่างกัน) — ล้นกรอบด้านข้างได้ไม่เกิน 35%
     // จอแคบ (มือถือหลายตัวละคร) ล้นเกินนั้น → ย่อลงพอดีกรอบแทน (เคยล้นไม่จำกัด → 3 คนกว้างรวม ~1000px บนจอ 390px ซ้อนกันหมด)
     return (
       <div className="flex h-full w-full items-end justify-center">
-        <img src={sprite.url} srcSet={sprite.hd ? `${sprite.url} 1x, ${sprite.hd} 2x` : undefined} alt={id === 'me' ? s.name : NAMES[id]} draggable={false}
+        <img src={sprite.url} srcSet={sprite.hd ? `${sprite.url} 1x, ${sprite.hd} 2x` : undefined} alt={id === 'me' ? s.name : id === 'kid' ? kidName(sceneId) : NAMES[id]} draggable={false}
           className="h-full w-auto max-w-[135%] shrink-0 object-contain object-bottom drop-shadow-[0_8px_18px_rgba(0,0,0,.25)]"
           style={{
             transform: `scale(${sc})`, transformOrigin: 'bottom center',
             imageRendering: sprite.pixel ? 'pixelated' : undefined,
-            filter: dim ? 'brightness(.62) saturate(.8)' : undefined, transition: 'filter .3s',
+            filter, transition: 'filter .3s',
           }} />
       </div>
     )

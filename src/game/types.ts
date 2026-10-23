@@ -62,6 +62,8 @@ export interface GameState {
   picks?: string[]
   /** โหมดสองชาติ */
   mode?: 'reborn'
+  /** โหมดทดลองเล่น (ยังไม่ login): เดินแค่ฉากหลัก จบใน ~5 นาที */
+  quick?: boolean
   life?: 1 | 2
   past?: PastLife
   /** ความสัมพันธ์กับตัวละครใหม่ 0–10 */
@@ -198,6 +200,8 @@ export interface Scene {
   call?: { who: CharId; kind: 'call' | 'chat'; time?: string }
   /** ป้ายพิเศษบนการ์ดอายุ เช่น กรรม / เหตุการณ์น่ากลัว */
   mark?: 'karma' | 'fear' | 'memory'
+  /** ฉากเศร้า (ป่วยหนัก / ลาจาก) — ตัวละครที่ไม่ได้พูดทำหน้าเศร้าแทนหน้าปกติ */
+  mood?: 'sad'
   reward?: (score: number) => { effects: Partial<Stats>; memory: string; flags?: string[]; text: string; bond?: Bonds }
 }
 

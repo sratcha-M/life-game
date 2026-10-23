@@ -215,7 +215,7 @@ export function passYears(s: GameState, from: number, to: number): { state: Game
       for (const [k, v] of Object.entries(sh.effects ?? {})) stats[k as StatKey] = Math.max(0, stats[k as StatKey] + (v ?? 0))
       // นักบวชรักษาฟรีที่ รพ.สงฆ์ / บัตรทอง
       const free = st.career === 'monk' && ['dengue', 'carcrash', 'diabetes', 'heart', 'sick', 'depress', 'fall'].includes(sh.id)
-      st = applyFin({ ...st, stats, flags: [...st.flags, 'shock_' + sh.id, ...(sh.flags ?? [])], history: [...st.history, { age, text: `${sh.icon} ${sh.text}` }] }, free ? undefined : sh.fin?.(st), 0, age)
+      st = applyFin({ ...st, stats, flags: [...st.flags, 'shock_' + sh.id, ...(sh.flags ?? [])], flagAt: { ...(st.flagAt ?? {}), ['shock_' + sh.id]: age }, history: [...st.history, { age, text: `${sh.icon} ${sh.text}` }] }, free ? undefined : sh.fin?.(st), 0, age)
       const whys = (sh.why?.(age, prev) ?? []).filter((x): x is string => !!x)
       const ins = free ? 'นักบวชรักษาฟรีที่โรงพยาบาลสงฆ์' : sh.fin && ['carcrash', 'heart', 'sick', 'fall'].includes(sh.id) ? (has(prev, 'insured') ? 'มีประกัน เลยจ่ายเองแค่ส่วนน้อย' : 'ไม่มีประกัน จึงจ่ายเองเต็ม ๆ') : undefined
       const why = whys.length ? `เพราะ${whys.join(' และ')}` : sh.src === 'game' ? undefined : 'ไม่ได้มาจากการเลือกของคุณ — เป็นความเสี่ยงที่คนไทยทุกคนมีเท่ากัน'

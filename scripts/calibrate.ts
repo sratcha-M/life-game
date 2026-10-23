@@ -1,11 +1,12 @@
 // คำนวณ "ค่าปกติตอนอายุ 70" ของแต่ละค่าสถานะ จากชีวิตจำลอง → src/game/statBaseline.json
-// รันใหม่ทุกครั้งที่เพิ่ม/แก้เนื้อหา: npx tsx scripts/calibrate.ts
+// รันใหม่ทุกครั้งที่เพิ่ม/แก้เนื้อหา: npx tsx scripts/calibrate.ts · โหมดทดลองเล่น: npx tsx scripts/calibrate.ts quick → statBaselineQuick.json
 import fs from 'node:fs'
 import { applyChoice, getScene, newGame, nextSceneId, passYears, visibleChoices } from '../src/game/engine'
+const quick = process.argv[2] === 'quick'
 const KEYS = ['smart', 'body', 'art', 'social', 'happy', 'money', 'family', 'friend', 'love'] as const
 const vals: Record<string, number[]> = Object.fromEntries(KEYS.map((k) => [k, []]))
 for (let i = 0; i < 3000; i++) {
-  let s: any = { ...newGame('x', i % 2 ? 'girl' : 'boy', '#000'), avoid: undefined }
+  let s: any = { ...newGame('x', i % 2 ? 'girl' : 'boy', '#000', undefined, undefined, quick), avoid: undefined }
   for (let g = 0; g < 150; g++) {
     const sc = getScene(s.sceneId)
     const ch = visibleChoices(sc, s).filter((c: any) => !c.lock?.(s))
@@ -20,5 +21,5 @@ for (let i = 0; i < 3000; i++) {
 }
 const med = (a: number[]) => { const b = [...a].sort((x, y) => x - y); return b[Math.floor(b.length / 2)] }
 const out = Object.fromEntries(KEYS.map((k) => [k, Math.max(1, med(vals[k]))]))
-fs.writeFileSync(new URL('../src/game/statBaseline.json', import.meta.url), JSON.stringify(out, null, 1) + '\n')
+fs.writeFileSync(new URL(`../src/game/statBaseline${quick ? 'Quick' : ''}.json`, import.meta.url), JSON.stringify(out, null, 1) + '\n')
 console.log(vals.smart.length, 'lives', out)

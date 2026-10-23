@@ -71,8 +71,11 @@ function mark(k: string) {
   if (timer) clearTimeout(timer)
   timer = setTimeout(flush, 2500)
 }
+/** กำลังเล่นโหมดทดลอง → ไม่เก็บอะไรเลย (เซฟ ฉากจบ ถ้วย ความลับ อัลบั้ม) ไม่ให้ไปปนกับบัญชีจริงตอน login */
+let trialRun = false
+export function setTrialRun(on: boolean) { trialRun = on }
 if (ls && rawSet && rawRemove) {
-  ls.setItem = (k: string, v: string) => { rawSet(k, v); mark(k) }
+  ls.setItem = (k: string, v: string) => { if (trialRun && k.startsWith(PREFIX) && !LOCAL_ONLY.has(k)) return; rawSet(k, v); mark(k) }
   ls.removeItem = (k: string) => { rawRemove(k); mark(k) }
 }
 

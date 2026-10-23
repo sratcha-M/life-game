@@ -405,7 +405,7 @@ export const SCENES: Scene[] = [
     ],
   },
   {
-    id: 'dadsick', age: 45, bg: 'hospital', title: 'ข่าวจากบ้าน',
+    id: 'dadsick', mood: 'sad', age: 45, bg: 'hospital', title: 'ข่าวจากบ้าน',
     cast: ['dad', 'me', 'mom'],
     lines: [{ who: 'mom', expr: 'sad', text: 'ลูก... พ่อล้ม หมอบอกเป็นเส้นเลือดในสมอง' }],
     choices: [

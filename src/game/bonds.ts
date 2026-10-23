@@ -174,7 +174,7 @@ export const BOND_SCENES: Scene[] = [
     ],
   },
   {
-    id: 'jay_sorry', age: 50, bg: 'park', title: 'คำขอโทษที่มาช้า',
+    id: 'jay_sorry', mood: 'sad', age: 50, bg: 'park', title: 'คำขอโทษที่มาช้า',
     when: (s) => has(s, 'jay_betray'),
     because: () => 'เพราะวันที่เจเตะคุณออกจากบริษัท',
     cast: ['jay', 'me'],

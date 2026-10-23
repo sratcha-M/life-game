@@ -104,7 +104,8 @@ export const LIFE: Scene[] = [
   },
   {
     id: 'blame', age: 35, bg: 'office', title: 'แพะรับบาป',
-    when: (s) => ['office', 'dev', 'teacher', 'doctor'].includes(s.career ?? ''),
+    // แฉหัวหน้าจนโดนดำเนินคดีไปแล้ว → หัวหน้าคนนั้นไม่อยู่มาโยนความผิดให้อีก
+    when: (s) => ['office', 'dev', 'teacher', 'doctor'].includes(s.career ?? '') && !has(s, 'exposed_boss'),
     cast: ['boss', 'me'],
     lines: [{ who: 'boss', expr: 'angry', text: 'โปรเจกต์พังเพราะคุณ! (ทั้งที่หัวหน้าสั่งเอง)' }],
     choices: [

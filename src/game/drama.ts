@@ -32,7 +32,7 @@ export const DRAMA: Scene[] = [
 
   // ───────── ดราม่า ─────────
   {
-    id: 'yai_pass', age: 13, bg: 'hospital', title: 'วันที่ต้องเลือก', timer: 8,
+    id: 'yai_pass', mood: 'sad', age: 13, bg: 'hospital', title: 'วันที่ต้องเลือก', timer: 8,
     cast: ['yai', 'me'],
     lines: [{ who: 'yai', expr: 'sad', text: 'หลาน... ยายอยากเห็นหน้าหลานอีกสักครั้ง' }],
     because: (s) => (has(s, 'countryside') ? ago(s, /ยาย/, 'เพราะยายรักหลานคนนี้ที่สุด') : null),
@@ -64,19 +64,22 @@ export const DRAMA: Scene[] = [
     id: 'whistle', age: 34, bg: 'office', title: 'ความลับของบริษัท',
     when: (s) => ['office', 'dev'].includes(s.career ?? ''),
     cast: ['boss', 'me'],
-    lines: [{ who: 'boss', text: 'คุณเห็นเอกสารนั่นแล้วสินะ... เก็บเงียบไว้ แล้วโบนัสปีนี้ 8 แสน' }],
+    lines: [
+      { text: 'ค่ำวันหนึ่ง คุณหยิบแฟ้มผิดจากเครื่องปริ้นเตอร์ส่วนกลาง... เป็นบัญชีลับที่บริษัทใช้โกงเงินลูกค้า มีลายเซ็นหัวหน้าอยู่ทุกหน้า' },
+      { who: 'boss', text: 'คุณเห็นเอกสารนั่นแล้วสินะ... เก็บเงียบไว้ แล้วโบนัสปีนี้ 8 แสน' },
+    ],
     choices: [
       { text: '🤐 รับเงิน เก็บเงียบ', fin: { cash: 800_000 }, flags: ['hush'], effects: { happy: -1 }, memory: 'รับเงินปิดปากเรื่องบริษัทโกง',
         result: [{ text: 'เงินก้อนโตเข้าบัญชี... แต่คืนนั้นนอนไม่หลับ' }] },
       { text: '📢 แฉต่อสื่อ', outcomes: [
-        { chance: 0.5, effects: { social: 4, happy: 2 }, flags: ['hero'], memory: 'แฉบริษัทโกงจนเป็นข่าวใหญ่', result: [{ text: 'ข่าวดังทั่วประเทศ! คุณกลายเป็นฮีโร่ของผู้เสียหาย' }] },
+        { chance: 0.5, effects: { social: 4, happy: 2 }, flags: ['hero', 'exposed_boss'], memory: 'แฉบริษัทโกงจนเป็นข่าวใหญ่', result: [{ text: 'ข่าวดังทั่วประเทศ! หัวหน้าโดนพักงานและถูกดำเนินคดี คุณกลายเป็นฮีโร่ของผู้เสียหาย' }] },
         { chance: 0.5, fin: { cash: -400_000 }, flags: ['fired'], effects: { happy: -3 }, memory: 'แฉบริษัทแล้วโดนฟ้องกลับ', result: [{ text: 'บริษัทฟ้องหมิ่นประมาท... ค่าทนายหมดไปหลายแสน' }] },
       ] },
       { text: '🚪 ลาออกเงียบ ๆ', flags: ['fired'], fin: { cash: -150_000 }, effects: { happy: 1 }, memory: 'ลาออกจากบริษัทที่โกง', result: [{ text: 'ไม่อยากมีส่วนร่วม ขอเริ่มใหม่ที่อื่นดีกว่า' }] },
     ],
   },
   {
-    id: 'kid_sick', age: 40, bg: 'hospital', title: 'คืนที่ยาวที่สุด',
+    id: 'kid_sick', mood: 'sad', age: 40, bg: 'hospital', title: 'คืนที่ยาวที่สุด',
     when: (s) => has(s, 'kid'),
     because: () => 'เพราะคุณตัดสินใจมีลูกตอนอายุ 33',
     cast: (s) => (married(s) ? ['me', 'fah'] : ['me']),
@@ -105,7 +108,7 @@ export const DRAMA: Scene[] = [
     ],
   },
   {
-    id: 'mom_pass', age: 56, bg: 'hospital', title: 'ลาก่อนแม่',
+    id: 'mom_pass', mood: 'sad', age: 56, bg: 'hospital', title: 'ลาก่อนแม่',
     cast: ['mom', 'me'],
     lines: (s) => s.stats.family >= 5
       ? [{ who: 'mom', expr: 'happy', text: 'แม่ภูมิใจในตัวลูกเสมอนะ... ไม่ต้องร้องนะ' }]

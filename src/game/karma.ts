@@ -131,7 +131,7 @@ export const FEAR_SCENES: Scene[] = [
         { chance: 0.3, effects: { body: -2, happy: -3 }, fin: { cash: -300_000 }, flags: ['cancer'], memory: 'ตรวจเจอมะเร็งระยะแรก', result: [{ text: 'มะเร็งระยะแรก... หมอบอกยังรักษาหายได้' }] },
       ] },
       { text: '🤝 ขอให้ครอบครัวมาฟังด้วย', flags: ['f_biopsy'], effects: { family: 2 }, outcomes: [
-        { chance: 0.7, effects: { happy: 2 }, memory: 'ฟังผลชิ้นเนื้อพร้อมครอบครัว ไม่เป็นอะไร', result: [{ text: 'ทุกคนกอดกันกลางห้องตรวจ' }] },
+        { chance: 0.7, effects: { happy: 2 }, memory: 'ฟังผลชิ้นเนื้อพร้อมครอบครัว ไม่เป็นอะไร', result: [{ text: 'หมอยิ้ม "ไม่ใช่เนื้อร้ายครับ"' }, { text: 'ทุกคนกอดกันกลางห้องตรวจ' }] },
         { chance: 0.3, effects: { body: -2, happy: -1 }, fin: { cash: -300_000 }, flags: ['cancer'], memory: 'ตรวจเจอมะเร็งระยะแรก แต่มีครอบครัวอยู่ข้าง ๆ', result: [{ text: 'ข่าวร้าย... แต่มีมือหลายมือจับไว้' }] },
       ] },
       { text: '🙈 ไม่อยากรู้ กลับบ้าน', flags: ['f_biopsy'], effects: { happy: 1 }, outcomes: [
