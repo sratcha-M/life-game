@@ -40,8 +40,8 @@ export const HIDDEN_LABEL: Partial<Record<StatKey, string>> = {
  * (ฉากหลัก เช่น เกิด สอบเข้า เลือกอาชีพ แต่งงาน เกษียณ วันเกิด 70 ยังเกิดเสมอ)
  */
 const OPTIONAL: Record<string, number> = {
-  kinder: 0.75, kindergame: 0.5, nong_born: 0.65, summer: 0.6, coco_found: 0.5, bully: 0.6, sportsday: 0.5,
-  m1exam: 0.6, jay_meet: 0.55, exam: 0.5, yai_pass: 0.6, club: 0.6, crush: 0.7, skip: 0.5, parttime: 0.5,
+  kinder: 0.75, kindergame: 0.5, nong_born: 0.65, coco_found: 0.5, bully: 0.6, sportsday: 0.5,
+  m1exam: 0.6, jay_meet: 0.55, exam: 0.5, yai_pass: 0.6, crush: 0.7, skip: 0.5, parttime: 0.5,
   overtime: 0.55, parents: 0.6, house: 0.7, midlife: 0.55, tonreturn: 0.6, health: 0.65,
   nong_homework: 0.7, coco_walk: 0.6, jay_contest: 0.6, firstpay: 0.7, viral: 0.45, race: 0.5, scam: 0.5, crypto: 0.55,
 }
@@ -122,7 +122,7 @@ const leftCareer = (s: GameState) => {
 /** บวช → ไม่มีแฟน ไม่มีหัวหน้า (พระไม่มีนายจ้าง) */
 const isMonk = (s: GameState) => s.career === 'monk'
 const bossScene = (sc: Scene) => (Array.isArray(sc.cast) && sc.cast.includes('boss')) || sc.bg === 'office' || sc.id.startsWith('f_hr')
-/** อาชีพอิสระ (ไรเดอร์ เกษตรกร ฯลฯ) → ไม่มีเจ้านาย/HR แต่ยังเจอฉากทั่วไปที่ฉากหลังเป็นออฟฟิศได้ (เงินเดือนแรก คริปโต ฯลฯ) */
+/** อาชีพอิสระ (ไรเดอร์ เกษตรกร เจ้าของร้านอาหาร ฯลฯ) → ไม่มีเจ้านาย/HR แต่ยังเจอฉากทั่วไปที่ฉากหลังเป็นออฟฟิศได้ (เงินเดือนแรก คริปโต ฯลฯ) */
 const selfEmployed = (s: GameState) => SELF_EMPLOYED.includes(s.career ?? '')
 const hasBoss = (sc: Scene) => (Array.isArray(sc.cast) && sc.cast.includes('boss')) || sc.id.startsWith('f_hr')
 /** ฉากที่มีพ่อ/แม่อยู่ → ไม่เกิดหลังพ่อ/แม่จากไปแล้ว */
@@ -330,7 +330,8 @@ export function endingRules(s: GameState): EndRule[] {
     { id: 'lonelyrich', bad: true, checks: [isLead('money'), below('family'), below('love')] },
     { id: 'legend', checks: cs ? [
       { ...isLead(cs), label: `⭐ ทักษะอาชีพ (${name(cs)}) เด่นอันดับ 1 (ตอนนี้อันดับ ${P.rank(cs)})`, ok: P.lead(cs) && P.rank(cs) === 1 },
-      { label: '💼 ไม่เคยถูกเลิกจ้างหรือไล่ออกระหว่างอาชีพนี้', ok: !(['fired', 'shock_layoff'] as const).some((f) => has(f) && (s.flagAt?.[f] ?? 99) >= (s.careerSince ?? 0)) },
+      // นับเฉพาะการโดนไล่ออก (มาจากทางเลือกของผู้เล่น) · การเลิกจ้างตามเศรษฐกิจเป็นโชคล้วน ๆ ไม่ควรตัดสิทธิ์
+      { label: '💼 ไม่เคยถูกไล่ออกระหว่างอาชีพนี้', ok: !(has('fired') && (s.flagAt?.fired ?? 99) >= (s.careerSince ?? 0)) },
       { label: `💰 ฐานะไม่พัง: เงินไม่อยู่ 2 อันดับท้าย (ตอนนี้อันดับ ${P.low('money')} จากท้าย)`, ok: P.low('money') > 2 },
     ] : [{ label: '⭐ ต้องมีอาชีพก่อน', ok: false }] },
     { id: 'home', checks: [{ label: '🌾 ตัดสินใจกลับไปอยู่บ้านเกิดตอนเกษียณ', ok: has('retire_farm') }, { label: '🏡 มีรากที่ต่างจังหวัด / เป็นชาวนา', ok: has('countryside') || s.career === 'farmer' }, { label: `🏠 ครอบครัว หรือ 😊 ความสุข ติด 3 อันดับแรก (ตอนนี้อันดับ ${Math.min(P.rank('family'), P.rank('happy'))})`, ok: Math.min(P.rank('family'), P.rank('happy')) <= 3 }] },
