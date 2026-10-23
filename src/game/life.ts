@@ -14,7 +14,7 @@ export const LIFE: Scene[] = [
     id: 'firstpay', age: 23, bg: 'office', title: 'เงินเดือนแรก',
     when: (s) => !!s.career,
     cast: ['me'],
-    lines: [{ who: 'me', expr: 'happy', text: 'เงินเดือนแรกเข้าบัญชีแล้ว! จะจัดการยังไงดี?' }],
+    lines: (s) => [{ who: 'me', expr: 'happy', text: `${SELF_EMPLOYED.includes(s.career ?? '') ? 'รายได้เดือนแรกของตัวเอง' : 'เงินเดือนแรก'}เข้าบัญชีแล้ว! จะจัดการยังไงดี?` }],
     choices: [
       { text: '🐷 ออมก่อนใช้ 30%', flags: ['saver'], effects: { happy: -1, smart: 1 }, memory: 'ออมเงินตั้งแต่เงินเดือนแรก', result: [{ text: 'ชีวิตเรียบง่าย แต่เงินเก็บโตขึ้นทุกเดือน' }] },
       { text: '🛍️ ใช้ให้สุด เดี๋ยวก็มีใหม่', flags: ['spender'], effects: { happy: 2, social: 1 }, memory: 'ใช้เงินเดือนหมดทุกเดือน', result: [{ text: 'ชีวิตดี๊ดี... แต่สิ้นเดือนกินมาม่าทุกครั้ง' }] },

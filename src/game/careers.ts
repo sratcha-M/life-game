@@ -45,4 +45,4 @@ export const careerById = (id: string | null | undefined) => CAREER_LIST.find((c
 export const CAREERS: Record<string, string> = Object.fromEntries(CAREER_LIST.map((c) => [c.id, c.name]))
 export const CAREER_STAT: Record<string, StatKey> = Object.fromEntries(CAREER_LIST.map((c) => [c.id, c.stat]))
 /** อาชีพอิสระ — ไม่มีเจ้านาย ไม่มีออฟฟิศ (ไม่เจอฉากหัวหน้า/HR/เลื่อนขั้น/โดนเลิกจ้าง) */
-export const SELF_EMPLOYED = ['farmer', 'monk', 'laity', 'rider', 'streamer', 'seller']
+export const SELF_EMPLOYED = ['farmer', 'monk', 'laity', 'rider', 'streamer', 'seller', 'chef']

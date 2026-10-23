@@ -145,6 +145,10 @@ export function yearly(s: GameState, age: number) {
 }
 
 // ───────── เรื่องไม่คาดคิด (โอกาสต่อปีจากสถิติจริง — ดู realstats.ts) ─────────
+/** สายศิลปิน/นักกีฬา/ครีเอเตอร์ → ดังเปรี้ยงแทนเลื่อนตำแหน่ง */
+const STAR = ['artist', 'musician', 'actor', 'athlete', 'creator']
+/** อาชีพที่ไม่มีสายบังคับบัญชาแบบบริษัท → ไม่มีเลื่อนตำแหน่ง/โบนัสบริษัท */
+const NO_LADDER = [...STAR, 'chef', 'trader']
 export interface Shock {
   id: string
   icon: string
@@ -165,7 +169,7 @@ export interface Shock {
   flags?: string[]
 }
 const CAREER_NAME = (s: GameState) => careerById(s.career)?.name ?? 'บริษัท'
-const OFFICE = ['office', 'dev', 'chef', 'creator', 'musician', 'engineer', 'trader', 'lawyer']
+const OFFICE = ['office', 'dev', 'creator', 'musician', 'engineer', 'trader', 'lawyer']
 export const SHOCKS: Shock[] = [
   { id: 'dengue', icon: '🦟', text: 'ป่วยไข้เลือดออก นอนโรงพยาบาลหนึ่งอาทิตย์', min: 3, max: 70, src: 'ddc_dengue', basis: 'ผู้ป่วย ≈0.2% ของประชากรต่อปี · เด็กวัยเรียนเสี่ยงกว่าราว 2.5 เท่า (ประมาณ) · ต่างจังหวัด ×1.3',
     why: (a, s) => [a >= 5 && a <= 14 && 'เด็กวัยเรียนเสี่ยงไข้เลือดออกมากที่สุด', rural(s) && 'อยู่ต่างจังหวัดใกล้แหล่งยุงลาย'], p: (a, s) => 0.002 * (a >= 5 && a <= 14 ? 2.5 : 1) * (rural(s) ? 1.3 : 1), effects: { body: -1 }, fin: () => ({ cash: -3_000 }) },
@@ -194,6 +198,9 @@ export const SHOCKS: Shock[] = [
   { id: 'phone', icon: '📱', text: 'ทำมือถือตกน้ำ ต้องเก็บเงินซื้อใหม่', min: 12, max: 22, src: 'game', basis: '8% ต่อปี', p: () => 0.08, fin: () => ({ cash: -8_000 }), effects: { happy: -1 } },
   { id: 'bonus', icon: '🎉', text: 'บริษัทกำไรดี แจกโบนัส 6 เดือน!', min: 24, max: 58, src: 'game', basis: '4% ต่อปี (เฉพาะคนมีงานประจำ)', when: (s) => !!s.career, p: () => 0.04, effects: { happy: 2 }, fin: (s) => ({ cash: yearly(s, 30).income * 0.5 }) },
   { id: 'promote', icon: '📈', text: 'ได้เลื่อนตำแหน่งแบบไม่ทันตั้งตัว', min: 27, max: 50, src: 'game', basis: '5% ต่อปี', when: (s) => !has(s, 'promoted') && !!s.career, p: () => 0.05, flags: ['promoted'], effects: { happy: 1, social: 1 } },
+  // สายศิลปิน/นักกีฬา/ครีเอเตอร์ และเจ้าของร้าน ไม่มีเลื่อนตำแหน่ง/โบนัสบริษัท → มีจังหวะดังแทน (ค่าตัว/รายได้ขึ้นเหมือนเลื่อนตำแหน่ง)
+  { id: 'breakout', icon: '🌟', text: 'ผลงานดังเปรี้ยงแบบไม่ทันตั้งตัว งานใหญ่เข้า ค่าตัวพุ่ง!', min: 25, max: 50, src: 'game', basis: '5% ต่อปี (สายศิลปิน นักกีฬา ครีเอเตอร์)', when: (s) => !has(s, 'promoted') && STAR.includes(s.career ?? ''), p: () => 0.05, flags: ['promoted'], effects: { happy: 2, social: 1 }, fin: (s) => ({ cash: yearly(s, 30).income * 0.3 }) },
+  { id: 'viral_shop', icon: '🔥', text: 'ร้านกลายเป็นไวรัลในโซเชียล ลูกค้าต่อคิวยาวทุกวัน!', min: 25, max: 55, src: 'game', basis: '5% ต่อปี (เจ้าของร้านอาหาร)', when: (s) => !has(s, 'promoted') && s.career === 'chef', p: () => 0.05, effects: { happy: 2, social: 1 }, fin: (s) => ({ cash: yearly(s, 30).income * 0.3 }) },
   { id: 'inherit', icon: '📜', text: 'ญาติห่าง ๆ ที่ไม่เคยเจอ ทิ้งมรดกไว้ให้!', min: 30, max: 65, src: 'game', basis: '0.3% ต่อปี', p: () => 0.003, effects: { happy: 2 }, fin: () => ({ cash: 1_200_000 }) },
   { id: 'reunion', icon: '🍲', text: 'ครอบครัวกลับมากินข้าวพร้อมหน้ากันครั้งแรกในรอบหลายปี', min: 20, max: 70, src: 'game', basis: '5% ต่อปี', p: () => 0.05, effects: { family: 2, happy: 1 } },
 ]
@@ -220,7 +227,7 @@ export interface YearReport {
 const DEBT_RATE = 0.07
 const RESTRUCTURED_RATE = 0.04
 /** เรื่องไม่คาดคิดที่คิดเงินจากรายได้/เงินสดอยู่แล้ว (ไม่ต้องคูณเงินเฟ้อ) */
-const BY_INCOME = ['layoff', 'pandemic', 'bonus', 'depress', 'scammed']
+const BY_INCOME = ['layoff', 'pandemic', 'bonus', 'depress', 'scammed', 'breakout', 'viral_shop']
 
 /** เวลาผ่านไปจากอายุ from → to: คิดเงิน + สุ่มเรื่องไม่คาดคิด */
 export function passYears(s: GameState, from: number, to: number): { state: GameState; report: YearReport } {
@@ -258,6 +265,8 @@ export function passYears(s: GameState, from: number, to: number): { state: Game
       if (age < sh.min || age > sh.max || st.flags.includes('shock_' + sh.id)) continue
       if (sh.when && !sh.when(st)) continue
       if (['layoff', 'bonus', 'promote'].includes(sh.id) && (has(st, 'fired') || has(st, 'own_boss') || SELF_EMPLOYED.includes(st.career ?? ''))) continue
+      // ไม่มีบริษัทให้เลื่อนตำแหน่ง/แจกโบนัส
+      if (['bonus', 'promote'].includes(sh.id) && NO_LADDER.includes(st.career ?? '')) continue
       const p = sh.p(age, st)
       if (rand(st.seed, `shock_${sh.id}_${age}`) >= p) continue
       const b = netWorth(st)

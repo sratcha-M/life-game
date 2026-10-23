@@ -16,10 +16,10 @@ await page.addInitScript(() => {
   new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) { if (!(n instanceof Element)) continue; const imgs = n.matches?.('img.emo') ? [n] : [...n.querySelectorAll?.('img.emo') ?? []]; for (const i of imgs) { window.__emo.added++; requestAnimationFrame(() => { if (i.complete || !i.isConnected) return; window.__emo.blank++; if (performance.now() > 3000) { window.__emo.blankAfter3s++; const k = i.getAttribute('src'); window.__emo.srcs[k] = (window.__emo.srcs[k] ?? 0) + 1 } }) } } })
     .observe(document, { childList: true, subtree: true })
 })
-await page.goto('http://localhost:4173/')
+await page.goto(process.env.URL || 'http://localhost:4173/')
 await page.waitForTimeout(800)
 await page.screenshot({ path: `${out}/01-title.png` })
-await page.getByText('เริ่มชีวิตใหม่').click()
+await page.getByText(/เริ่มชีวิตใหม่|ทดลองเล่น/).first().click()
 await page.fill('input', 'มิ้นท์')
 await page.waitForTimeout(900)
 await page.screenshot({ path: `${out}/02-setup.png` })
@@ -30,10 +30,13 @@ await page.locator('button[disabled]').count()
 await page.locator('.grid button').first().click()
 await page.waitForTimeout(700)
 await page.screenshot({ path: `${out}/03-fate.png` })
-await page.getByText('ต่อไป').click()
-await page.waitForTimeout(400)
-await page.locator('.flex-col > button').first().click()
-await page.screenshot({ path: `${out}/04-dream.png` })
+// โหมดทดลองเล่นข้ามหน้าเลือกความฝัน (ไม่มีปุ่ม 'ต่อไป')
+if (await page.getByText('ต่อไป').count()) {
+  await page.getByText('ต่อไป').click()
+  await page.waitForTimeout(400)
+  await page.locator('.flex-col > button').first().click()
+  await page.screenshot({ path: `${out}/04-dream.png` })
+}
 await page.getByText('เกิด!').click()
 let shots = 0, steps = 0, picks = 0
 while (steps++ < 1800) {
@@ -65,6 +68,9 @@ while (steps++ < 1800) {
     picks++
     continue
   }
+  // มินิเกมคิดเลข (สอบ/โหมดหาเงิน): กดตอบเลข ไม่งั้นต้องรอหมดเวลาทีละข้อ
+  const nums = page.locator('button:visible').filter({ hasText: /^\s*-?\d+\s*$/ })
+  if (await nums.count()) { await nums.nth(Math.floor(Math.random() * (await nums.count()))).click({ timeout: 2000 }).catch(() => {}); continue }
   if (steps % 23 === 5) { await page.waitForTimeout(700); await page.screenshot({ path: `${out}/s${steps}.png` }) }
   await page.mouse.click(mobile ? 200 : 640, mobile ? 300 : 300)
 }

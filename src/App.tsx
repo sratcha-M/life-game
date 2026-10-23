@@ -38,11 +38,13 @@ import { ShareCard, ShareCardModal } from './components/ShareCard'
 type Screen = 'title' | 'setup' | 'play' | 'ending' | 'album' | 'reborn' | 'legacy'
 /** ทดสอบโหมดทดลองเล่นบนเครื่องที่ไม่ได้ต่อ Firebase: ใส่ ?trial ท้าย URL */
 const FORCE_TRIAL = new URLSearchParams(location.search).has('trial')
+/** ทดสอบโหมดเต็มโดยไม่ต้อง login (เฉพาะ npm run dev: ?full) */
+const FORCE_FULL = import.meta.env.DEV && new URLSearchParams(location.search).has('full')
 /** ยังไม่ login → เล่นได้แค่โหมดทดลอง (สั้น ~5 นาที ไม่มีตระกูล) */
 function useTrial() {
   const [user, setUser] = useState(cloudState().user)
   useEffect(() => onCloud((c) => setUser(c.user)), [])
-  return FORCE_TRIAL || (cloudReady && !user)
+  return FORCE_TRIAL || (!FORCE_FULL && cloudReady && !user)
 }
 
 export default function App() {
@@ -300,6 +302,7 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
   const [lines, setLines] = useState<Line[]>(() => resolveLines(getScene(initial.sceneId).lines, initial))
   const [idx, setIdx] = useState(0)
   const [toasts, setToasts] = useState<{ id: number; text: string; good: boolean }[]>([])
+  const toastSeq = useRef(0)
   const [panel, setPanel] = useState<null | 'stats' | 'log' | 'menu'>(null)
   const [voice, setVoice] = useState(voiceOn())
   const [left, setLeft] = useState<number | null>(null)
@@ -430,7 +433,7 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
   }, [scene.age, s.stats.happy])
   const firstPhase = (): Phase => (scene.minigame ? 'mini' : choices.length && lines.length <= 1 ? 'choice' : 'lines')
   const toast = (text: string, good: boolean) => {
-    const id = Date.now()
+    const id = (toastSeq.current += 1000)
     setToasts((t) => [...t, { id, text, good }])
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 2700)
   }
@@ -539,7 +542,8 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
     }
     const ns = timedOut ? { ...ns0, history: [...ns0.history.slice(0, -1), ...(ns0.history.length > s.history.length ? [{ ...ns0.history[ns0.history.length - 1], text: ns0.history[ns0.history.length - 1].text + ' (ลังเลจนหมดเวลา)' }] : [])] } : ns0
     const deltas = Object.entries(effects).filter(([, v]) => v)
-    const now = Date.now()
+    // ไอดีไม่ซ้ำกับ toast() ที่ยิงในมิลลิวินาทีเดียวกัน
+    const now = (toastSeq.current += 1000)
     setToasts([
       ...(Math.abs(cashDelta) >= 1000 ? [{ id: now - 1, text: `💰 ${fmtBaht(cashDelta, true)} · คงเหลือ ${fmtBaht(netWorth(ns))}`, good: cashDelta > 0 }] : []),
       ...deltas.map(([k, v], i) => {
@@ -610,7 +614,7 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
 
   return (
     <div ref={rootRef} className="absolute inset-0" onClick={advance}>
-      <div key={scene.bg} className="fadein absolute inset-0"><Background id={scene.bg} /></div>
+      <div key={`bg-${scene.bg}`} className="fadein absolute inset-0"><Background id={scene.bg} /></div>
 
       {/* ตัวละคร */}
       <div className="pointer-events-none absolute inset-x-0 bottom-[7.375rem] top-16 flex items-end justify-center sm:bottom-0">
@@ -630,8 +634,8 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
         </div>
       </div>
 
-      {fx && <Fx key={fx.key} kind={fx.kind} />}
-      {flash && <div key={flash.key} className={`pointer-events-none absolute inset-0 z-[36] ${flash.c === 'red' ? 'flash-red' : 'flash-white'}`} />}
+      {fx && <Fx key={`fx-${fx.key}`} kind={fx.kind} />}
+      {flash && <div key={`flash-${flash.key}`} className={`pointer-events-none absolute inset-0 z-[36] ${flash.c === 'red' ? 'flash-red' : 'flash-white'}`} />}
 
       {/* HUD: แถวบน (ข้อมูล | ปุ่ม+แจ้งเตือน) แล้วตามด้วยแถบข้อความกลางจอ — วางเป็นลำดับ ไม่ทับกัน */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[40] p-2 sm:p-3">
@@ -700,7 +704,7 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
 
       {/* การ์ดอายุ */}
       {phase === 'card' && (
-        <div key={s.sceneId} className={`fadein absolute inset-0 z-30 flex items-center justify-center backdrop-blur-[2px] ${secretNo(scene.id) ? 'bg-[#140f20]/85' : scene.mark === 'fear' ? 'bg-[#2a0a10]/85' : scene.mark === 'karma' ? 'bg-[#1a1040]/85' : 'bg-[#1d1a2b]/55'}`}>
+        <div key={`card-${s.sceneId}`} className={`fadein absolute inset-0 z-30 flex items-center justify-center backdrop-blur-[2px] ${secretNo(scene.id) ? 'bg-[#140f20]/85' : scene.mark === 'fear' ? 'bg-[#2a0a10]/85' : scene.mark === 'karma' ? 'bg-[#1a1040]/85' : 'bg-[#1d1a2b]/55'}`}>
           {scene.mark === 'fear' && <div className="pointer-events-none absolute inset-0 flash-red opacity-60" />}
           <div className="popin text-center text-white">
             {scene.call ? (
