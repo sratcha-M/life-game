@@ -3,8 +3,8 @@ import type { CharId, GameState, Line, Scene } from './types'
 
 /**
  * 🎂 ชีวิตหลังวันเกิด 70 — ไม่มีเพดานอายุ แข่งกันว่าจะพาตัวละครไปได้ถึงกี่ปี
- * ทุกปีทอยตามตารางชีพ UN × "ตัวคูณความเสี่ยง" ของชีวิตนั้น (ดูแลสุขภาพ มีความสุข ไม่อยู่คนเดียว = เสี่ยงน้อยลง; ดู engine: lifeRisk)
- * คนที่อยู่บน "เส้นทางร้อยปี" ครบทุกข้อ (engine: onLongRoute) รอดถึง 100 แน่นอน แล้วค่อยทอยต่อ
+ * ทุกปีทอยตามตารางชีพ UN × ความยากตามอายุ × "ตัวคูณความเสี่ยง" ของชีวิตนั้น (ดูแลสุขภาพ มีความสุข ไม่อยู่คนเดียว = เสี่ยงน้อยลง; ดู engine: lifeRisk)
+ * คนที่ตั้งความฝันร้อยปีและทำครบเส้นทาง (engine: sureTo100) รอดถึง 100 แน่นอน แล้วค่อยทอยต่อ
  * ฉากทุก 5 ปีโผล่เฉพาะคนที่ยังอยู่ และทางเลือกในฉากเหล่านี้ก็เปลี่ยนความเสี่ยงของช่วงถัดไปได้
  * เลย 110 ไม่มีฉากแล้ว แต่ชีวิตยังเดินต่อจนกว่าจะทอยไม่รอด (endAgeOf)
  */
@@ -25,13 +25,23 @@ const roll = (seed: number, id: string) => {
   return ((h >>> 0) % 100000) / 100000
 }
 /**
- * โอกาสเสียชีวิตปีนี้: ตารางชีพ UN × ความเสี่ยงของชีวิตนั้น
- * เลย 100 ตารางชีพหยุดที่ค่าเดียว → เพิ่มขึ้นปีละ 4% (คนอายุ 110 ทั่วโลกมีโอกาสรอดแต่ละปีราวครึ่งเดียว)
- * และการดูแลตัวเองช่วยได้น้อยลงเรื่อย ๆ (ใช้รากที่สองของตัวคูณ)
+ * โอกาสเสียชีวิตปีนี้ = ตารางชีพ UN × ความยากตามอายุ × ความเสี่ยงของชีวิตนั้น — ยิ่งแก่ยิ่งยาก:
+ * - ความยากเพิ่มปีละ 2% ตั้งแต่ 70 (อายุ 80 = ×1.2, 90 = ×1.4, 100 = ×1.6)
+ * - สิ่งดี ๆ ที่สะสมมาช่วยได้น้อยลงทุกปี (ยกกำลังตัวคูณความเสี่ยงด้วย 1 → 0.5 ตอนอายุ 100)
+ * - เลย 100 ตารางชีพหยุดที่ค่าเดียว → เพิ่มขึ้นอีกปีละ 4%
  */
-const deathChance = (s: GameState, age: number, risk: number) =>
-  age <= 100 ? qx(age, sex(s)) * risk : (qx(100, sex(s)) + 0.04 * (age - 100)) * Math.sqrt(risk)
-const dies = (s: GameState, age: number, risk: number) => roll(s.seed, `year_${age}`) < Math.min(0.95, deathChance(s, age, risk))
+const hard = (age: number) => 1 + 0.02 * Math.max(0, age - 70)
+const deathChance = (s: GameState, age: number, risk: number) => {
+  const base = age <= 100 ? qx(age, sex(s)) * hard(age) : qx(100, sex(s)) * hard(100) + 0.04 * (age - 100)
+  return Math.min(0.95, base * risk ** Math.max(0.5, 1 - 0.0167 * (age - 70)))
+}
+const dies = (s: GameState, age: number, risk: number) => roll(s.seed, `year_${age}`) < deathChance(s, age, risk)
+/** โอกาสรอดจากอายุ from ถึง to ด้วยความเสี่ยงตอนนี้ (ใช้บอกผู้เล่นในแต่ละฉาก) */
+export const surviveOdds = (s: GameState, from: number, to: number, risk: number) => {
+  let p = 1
+  for (let a = from; a < to; a++) p *= 1 - deathChance(s, a, risk)
+  return p
+}
 /** ฉาก long_ ล่าสุดที่ผ่านมา (ยังไม่ถึงก็นับวันเกิด 70) */
 export const lastLongAge = (s: GameState) => (s.sceneId.startsWith('long_') ? Number(s.sceneId.slice(5)) : 70)
 /** โอกาสคนไทยทั่วไปอายุ 70 อยู่ถึงอายุนี้ ตามตารางชีพ UN */
@@ -41,24 +51,31 @@ const survive = (s: GameState, from: number, to: number) => {
   return p
 }
 
-/** อายุที่จากไปจริง: ทอยทีละปีต่อจากฉาก long_ ล่าสุด ด้วยความเสี่ยงของชีวิตตอนนั้น (อยู่บนเส้นทางร้อยปี = รอดถึง 100 แน่นอน) */
-export function deathAge(s: GameState, risk: number, route: boolean) {
-  for (let a = lastLongAge(s); a < MAX_AGE; a++) if (!(route && a < 100) && dies(s, a, risk)) return a
+/** อายุที่จากไปจริง: ทอยทีละปีต่อจากฉาก long_ ล่าสุด ด้วยความเสี่ยงของชีวิตตอนนั้น (sure = รอดถึง 100 แน่นอน) */
+export function deathAge(s: GameState, risk: number, sure: boolean) {
+  for (let a = lastLongAge(s); a < MAX_AGE; a++) if (!(sure && a < 100) && dies(s, a, risk)) return a
   return MAX_AGE
 }
 
-export function longevityScenes(risk: (s: GameState) => number, onRoute: (s: GameState) => boolean): Scene[] {
-  /** ฉากอายุนี้เกิดเมื่อ: ผ่านฉาก long_ ก่อนหน้ามาแล้ว และรอดทุกปีในช่วงนั้น (อยู่บนเส้นทางร้อยปี = ไม่ต้องทอยจนถึง 100) */
+export function longevityScenes(risk: (s: GameState) => number, sure: (s: GameState) => boolean): Scene[] {
+  /** ฉากอายุนี้เกิดเมื่อ: ผ่านฉาก long_ ก่อนหน้ามาแล้ว และรอดทุกปีในช่วงนั้น (sure = ความฝันร้อยปีที่ทำครบเส้นทาง ไม่ต้องทอยจนถึง 100) */
   const alive = (age: number) => (s: GameState) => {
     if (s.endId || s.quick) return false
     const prev = LONG_AGES[LONG_AGES.indexOf(age) - 1] ?? 70
     if (lastLongAge(s) !== prev) return false
-    if (age <= 100 && onRoute(s)) return true
+    if (age <= 100 && sure(s)) return true
     const r = risk(s)
     for (let a = prev; a < age; a++) if (dies(s, a, r)) return false
     return true
   }
-  const odds = (age: number) => (s: GameState) => `📊 ตารางชีพ UN: ${people(s)}ไทยอายุ 70 มีโอกาสอยู่ถึง ${age} ราว ${pct(survive(s, 70, age))}`
+  /** บอกโอกาสรอดถึงฉากถัดไป (คิดจากชีวิตตอนนี้ — เลือกทางที่ดูแลตัวเองแล้ว % จะดีขึ้นในฉากหน้า) */
+  const next = (age: number) => (s: GameState) => {
+    const to = LONG_AGES[LONG_AGES.indexOf(age) + 1] ?? age + 5
+    if (to <= 100 && sure(s)) return `🛡️ ครบเส้นทางความฝันร้อยปี: รอดถึง ${to} แน่นอน`
+    return `🎲 โอกาสรอดถึงอายุ ${to}: ${pct(surviveOdds(s, age, to, risk(s)))} — ยิ่งแก่ยิ่งยาก`
+  }
+  const why = (age: number, note: (s: GameState) => string) => (s: GameState) => `${note(s)} · ${next(age)(s)}`
+  const odds = (age: number) => why(age, (s) => `📊 ตารางชีพ UN: ${people(s)}ไทยอายุ 70 มีโอกาสอยู่ถึง ${age} ราว ${pct(survive(s, 70, age))}`)
   return [
     {
       id: 'long_75', age: 75, bg: 'park', title: 'เจ็ดสิบห้ายังไม่หยุด', cast: ['me'], when: alive(75), because: odds(75),
@@ -90,7 +107,7 @@ export function longevityScenes(risk: (s: GameState) => number, onRoute: (s: Gam
     },
     {
       id: 'long_90', mood: 'sad', age: 90, bg: 'village', title: 'คนสุดท้ายของรุ่น', cast: ['me'], when: alive(90),
-      because: (s) => `📊 ตารางชีพ UN: จากอายุ 70 อยู่ถึง 90 ได้ราว ${pct(survive(s, 70, 90))} — เพื่อนรุ่นเดียวกันส่วนใหญ่จากไปก่อนแล้ว`,
+      because: why(90, (s) => `📊 ตารางชีพ UN: จากอายุ 70 อยู่ถึง 90 ได้ราว ${pct(survive(s, 70, 90))} — เพื่อนรุ่นเดียวกันส่วนใหญ่จากไปก่อนแล้ว`),
       lines: [{ text: 'งานศพเพื่อนร่วมรุ่นคนสุดท้าย... ในรูปหมู่สมัยเรียน เหลือคุณยิ้มอยู่คนเดียว' }],
       choices: [
         { text: '✍️ เขียนเรื่องของทุกคนเก็บไว้', effects: { happy: 2, art: 1 }, memory: 'อายุเก้าสิบเขียนบันทึกเรื่องเพื่อนทุกคนไว้ให้คนรุ่นหลัง', result: R('สมุดเล่มหนา ชื่อเพื่อนทุกคนอยู่ในนั้น ไม่มีใครถูกลืม') },
@@ -111,7 +128,7 @@ export function longevityScenes(risk: (s: GameState) => number, onRoute: (s: Gam
     },
     {
       id: 'long_100', age: 100, bg: 'festival', title: 'วันเกิดปีที่ 100', cast: family, when: alive(100),
-      because: (s) => `📊 ตารางชีพ UN: ${people(s)}ไทยอายุ 70 มีโอกาสอยู่ถึง 100 เพียง ${pct(survive(s, 70, 100))} — คุณคือหนึ่งในนั้น`,
+      because: why(100, (s) => `📊 ตารางชีพ UN: ${people(s)}ไทยอายุ 70 มีโอกาสอยู่ถึง 100 เพียง ${pct(survive(s, 70, 100))} — คุณคือหนึ่งในนั้น`),
       lines: (s) => [has(s, 'kid')
         ? { who: 'kid', expr: 'happy', text: 'นักข่าวมาขอสัมภาษณ์แน่ะ ถามว่าเคล็ดลับอายุร้อยปีคืออะไร?' }
         : { text: 'นักข่าวท้องถิ่นมาขอสัมภาษณ์คนอายุร้อยปีคนแรกของตำบล "เคล็ดลับคืออะไรครับ?"' }],
@@ -132,7 +149,7 @@ export function longevityScenes(risk: (s: GameState) => number, onRoute: (s: Gam
     },
     {
       id: 'long_110', age: 110, bg: 'festival', title: 'ร้อยสิบปี', cast: family, when: alive(110),
-      because: () => '📊 คนที่อายุเกิน 110 ปีทั่วโลกมีไม่ถึงพันคน — เลยจากนี้ทุกปีคือสถิติใหม่ของคุณ',
+      because: why(110, () => '📊 คนที่อายุเกิน 110 ปีทั่วโลกมีไม่ถึงพันคน — เลยจากนี้ทุกปีคือสถิติใหม่ของคุณ'),
       lines: [{ text: 'ร้อยสิบปี... ข่าวไปไกลถึงต่างประเทศ มีคนส่งการ์ดอวยพรมาจากญี่ปุ่นกับอิตาลี' }],
       choices: [
         { text: '🎂 เป่าเทียนเองให้ได้ทุกเล่ม', effects: { body: 1, happy: 2 }, memory: 'อายุร้อยสิบปีเป่าเทียนวันเกิดเองจนหมด', result: R('เป่าสามรอบกว่าจะหมด... ทั้งงานปรบมือเหมือนเพิ่งได้แชมป์') },

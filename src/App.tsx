@@ -3,7 +3,7 @@ import { Background } from './art/Background'
 import { Character, NAMES, kidName } from './art/Character'
 import {
   applyChoice, CAREERS, dropSave, fmtBaht, listSaves, netWorth, passYears, married, ENDINGS, fillText, getScene, HIDDEN_LABEL, newGame, nextSceneId, slotId, type SaveSlot,
-  partnerName, pickEnding, endAgeOf, lifeFactors, onLongRoute, statProfile, nearestEndings, endingRules, weirdRules, rememberScenes, resolveLines, save, STAT_INFO, unlockedEndings, unlockEnding, visibleChoices,
+  partnerName, pickEnding, endAgeOf, lifeFactors, onLongRoute, sureTo100, statProfile, nearestEndings, endingRules, weirdRules, rememberScenes, resolveLines, save, STAT_INFO, unlockedEndings, unlockEnding, visibleChoices,
 } from './game/engine'
 import { stageOf } from './game/story'
 import { SwipeChoice, splitIcon } from './components/SwipeChoice'
@@ -1041,7 +1041,7 @@ function StockDetails({ s }: { s: GameState }) {
 
 const END_HINT: Record<string, string> = {
   legend: 'ทักษะหลักของอาชีพต้องเด่นที่สุดในชีวิต', family: 'ครอบครัวเด่นติด 2 อันดับแรก และอยู่กับคู่ชีวิตจนแก่', friend: 'มิตรภาพเด่นติด 2 อันดับแรก', free: 'ความสุขเด่นติด 2 อันดับแรก หรือใช้ชีวิตแบบนักฝัน',
-  home: 'มีรากที่ต่างจังหวัด กลับบ้านเกิดตอนเกษียณ และครอบครัว/ความสุขติด 3 อันดับแรก', centenarian: 'อยู่ให้รอดถึงวันเกิด 100 — ร่างกายเด่น ความสุขติด 2 อันดับแรก ดูแลสุขภาพจริงจัง ไม่บ้างาน และไม่โดดเดี่ยว = รอดถึง 100 แน่นอน (ไม่ครบก็ยังลุ้นได้)', ordinary: 'ไม่มีค่าไหนเด่นกว่าค่าอื่นชัดเจน',
+  home: 'มีรากที่ต่างจังหวัด กลับบ้านเกิดตอนเกษียณ และครอบครัว/ความสุขติด 3 อันดับแรก', centenarian: 'ร่างกายเด่น ความสุขติด 2 อันดับแรก ดูแลสุขภาพจริงจัง ไม่บ้างาน ไม่โดดเดี่ยว แล้วรอดถึงวันเกิด 100 (ตั้งความฝันร้อยปีแล้วทำครบ = รอดแน่นอน)', ordinary: 'ไม่มีค่าไหนเด่นกว่าค่าอื่นชัดเจน',
   lonelyrich: 'เงินเด่น แต่ครอบครัวและความรักอ่อน', regret: 'ความสุขและครอบครัวอยู่ท้ายตาราง', accident: 'ความเร็วตอนวัยรุ่น', jail: 'เงินง่าย ๆ ที่ผิดกฎหมาย',
   fugitive: 'หนีเมื่อความผิดตามมาทัน', bankrupt: 'กู้หนี้จนเกินตัว', overwork: 'ทำงานหนักไม่พัก', heart: 'ไม่ยอมไปหาหมอ',
   alien: 'เก็บธง 3 อัน: หินอุกกาบาต → ถอดรหัส → ยาน', cat: 'เก็บธง 3 อัน: โกโก้ → สลับร่าง → แมวในใจ', ghost: 'เก็บธง 3 อัน: ใต้ถุนบ้าน → ความฝัน → อายุ 70',
@@ -1090,13 +1090,14 @@ function EndingCompass({ s }: { s: GameState }) {
 /** 🎂 ปัจจัยอายุยืน: หลังวันเกิด 70 ชีวิตเดินต่อจนกว่าจะทอยไม่รอด — สิ่งเหล่านี้ทำให้รอดง่าย/ยากขึ้น */
 function LifeFactors({ s, className = '' }: { s: GameState; className?: string }) {
   const f = lifeFactors(s)
-  const route = onLongRoute(s)
+  const route = onLongRoute(s), sure = sureTo100(s)
   return (
     <div className={`rounded-xl bg-[#eef6f1] px-3 py-2.5 ${className}`}>
       <div className="font-display text-lg text-[#2f6a4a]">🎂 อายุยืนแค่ไหน?</div>
-      <div className="text-[.8125rem] leading-[1.6] text-[#4f7a62]">หลังวันเกิด 70 ชีวิตเดินต่อไม่มีเพดาน ทุกปีทอยรอดตามตารางชีพ UN — สิ่งเหล่านี้ทำให้รอดง่ายหรือยากขึ้น</div>
+      <div className="text-[.8125rem] leading-[1.6] text-[#4f7a62]">หลังวันเกิด 70 ชีวิตเดินต่อไม่มีเพดาน ทุกปีทอยรอดตามตารางชีพ UN และยิ่งแก่ยิ่งยาก — สิ่งเหล่านี้ทำให้รอดง่ายหรือยากขึ้น (แต่ช่วยได้น้อยลงเมื่ออายุมากขึ้น)</div>
       <div className="mt-1.5 flex flex-wrap gap-1">
-        {route && <span className="rounded-full bg-[#3fae78] px-2 py-0.5 text-[.75rem] text-white">🛡️ อยู่บนเส้นทางร้อยปี — รอดถึง 100 แน่นอน</span>}
+        {sure ? <span className="rounded-full bg-[#3fae78] px-2 py-0.5 text-[.75rem] text-white">🛡️ ครบเส้นทางความฝันร้อยปี — รอดถึง 100 แน่นอน</span>
+          : route && <span className="rounded-full bg-[#3fae78] px-2 py-0.5 text-[.75rem] text-white">🎂 ครบเส้นทางร้อยปี — ถ้ารอดถึง 100 ได้ฉากจบร้อยปี</span>}
         {f.length ? f.map((x) => <span key={x.label} className={`rounded-full px-2 py-0.5 text-[.75rem] ${x.mult < 1 ? 'bg-white text-[#2f6a4a]' : 'bg-[#fdecef] text-[#a04050]'}`}>{x.mult < 1 ? '⬆️' : '⬇️'} {x.label}</span>)
           : <span className="rounded-full bg-white px-2 py-0.5 text-[.75rem] text-[#6a7a70]">ยังไม่มีอะไรช่วยหรือฉุด — เท่าคนไทยทั่วไป</span>}
       </div>
