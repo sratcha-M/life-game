@@ -2,25 +2,75 @@ import { pct, qx } from './realstats'
 import type { CharId, GameState, Line, Scene } from './types'
 
 /**
- * 🎂 เส้นทางร้อยปี — หลังวันเกิด 70 ชีวิตเดินต่อเฉพาะคนที่ "ยังอยู่บนเส้นทางอายุยืน" (เงื่อนไขอยู่ใน engine: centenarianChecks)
- * ฉาก 80 / 90 / 100 ปี จึงไม่โผล่ให้คนที่บ้างาน ไม่ดูแลสุขภาพ หรืออยู่ตัวคนเดียว
- * ถ้าระหว่างทางร่างกายทรุด (เรื่องไม่คาดคิดตามอายุ) ก็หลุดจากเส้นทาง แล้วจบด้วยฉากจบอื่นตามค่าที่เด่น
+ * 🎂 ชีวิตหลังวันเกิด 70 — ไม่มีเพดานอายุ แข่งกันว่าจะพาตัวละครไปได้ถึงกี่ปี
+ * ทุกปีทอยตามตารางชีพ UN × "ตัวคูณความเสี่ยง" ของชีวิตนั้น (ดูแลสุขภาพ มีความสุข ไม่อยู่คนเดียว = เสี่ยงน้อยลง; ดู engine: lifeRisk)
+ * คนที่อยู่บน "เส้นทางร้อยปี" ครบทุกข้อ (engine: onLongRoute) รอดถึง 100 แน่นอน แล้วค่อยทอยต่อ
+ * ฉากทุก 5 ปีโผล่เฉพาะคนที่ยังอยู่ และทางเลือกในฉากเหล่านี้ก็เปลี่ยนความเสี่ยงของช่วงถัดไปได้
+ * เลย 110 ไม่มีฉากแล้ว แต่ชีวิตยังเดินต่อจนกว่าจะทอยไม่รอด (endAgeOf)
  */
 const has = (s: GameState, f: string) => s.flags.includes(f)
 const R = (text: string, who?: CharId): Line[] => [{ text, who }]
-/** โอกาสคนไทยอายุ 70 อยู่ถึง 100 ตามตารางชีพ UN */
+const family = (s: GameState): CharId[] => (has(s, 'kid') ? ['me', 'kid'] : ['me'])
+const sex = (s: GameState) => (s.gender === 'girl' ? 'f' : 'm')
+const people = (s: GameState) => (s.gender === 'girl' ? 'ผู้หญิง' : 'ผู้ชาย')
+
+export const LONG_AGES = [75, 80, 85, 90, 95, 100, 105, 110]
+/** อายุสูงสุดที่ทอยต่อ (กันลูปไม่จบ) — สถิติโลกคือ 122 ปี */
+const MAX_AGE = 125
+/** ทอยแบบมี seed: ผลเดิมทุกครั้งที่โหลดเซฟ */
+const roll = (seed: number, id: string) => {
+  let h = seed
+  for (const c of id) h = Math.imul(h ^ c.charCodeAt(0), 2654435761)
+  h ^= h >>> 15
+  return ((h >>> 0) % 100000) / 100000
+}
+/**
+ * โอกาสเสียชีวิตปีนี้: ตารางชีพ UN × ความเสี่ยงของชีวิตนั้น
+ * เลย 100 ตารางชีพหยุดที่ค่าเดียว → เพิ่มขึ้นปีละ 4% (คนอายุ 110 ทั่วโลกมีโอกาสรอดแต่ละปีราวครึ่งเดียว)
+ * และการดูแลตัวเองช่วยได้น้อยลงเรื่อย ๆ (ใช้รากที่สองของตัวคูณ)
+ */
+const deathChance = (s: GameState, age: number, risk: number) =>
+  age <= 100 ? qx(age, sex(s)) * risk : (qx(100, sex(s)) + 0.04 * (age - 100)) * Math.sqrt(risk)
+const dies = (s: GameState, age: number, risk: number) => roll(s.seed, `year_${age}`) < Math.min(0.95, deathChance(s, age, risk))
+/** ฉาก long_ ล่าสุดที่ผ่านมา (ยังไม่ถึงก็นับวันเกิด 70) */
+export const lastLongAge = (s: GameState) => (s.sceneId.startsWith('long_') ? Number(s.sceneId.slice(5)) : 70)
+/** โอกาสคนไทยทั่วไปอายุ 70 อยู่ถึงอายุนี้ ตามตารางชีพ UN */
 const survive = (s: GameState, from: number, to: number) => {
   let p = 1
-  for (let a = from; a < to; a++) p *= 1 - qx(a, s.gender === 'girl' ? 'f' : 'm')
+  for (let a = from; a < to; a++) p *= 1 - qx(a, sex(s))
   return p
 }
-const family = (s: GameState): CharId[] => (has(s, 'kid') ? ['me', 'kid'] : ['me'])
 
-export function longevityScenes(onRoute: (s: GameState) => boolean): Scene[] {
+/** อายุที่จากไปจริง: ทอยทีละปีต่อจากฉาก long_ ล่าสุด ด้วยความเสี่ยงของชีวิตตอนนั้น (อยู่บนเส้นทางร้อยปี = รอดถึง 100 แน่นอน) */
+export function deathAge(s: GameState, risk: number, route: boolean) {
+  for (let a = lastLongAge(s); a < MAX_AGE; a++) if (!(route && a < 100) && dies(s, a, risk)) return a
+  return MAX_AGE
+}
+
+export function longevityScenes(risk: (s: GameState) => number, onRoute: (s: GameState) => boolean): Scene[] {
+  /** ฉากอายุนี้เกิดเมื่อ: ผ่านฉาก long_ ก่อนหน้ามาแล้ว และรอดทุกปีในช่วงนั้น (อยู่บนเส้นทางร้อยปี = ไม่ต้องทอยจนถึง 100) */
+  const alive = (age: number) => (s: GameState) => {
+    if (s.endId || s.quick) return false
+    const prev = LONG_AGES[LONG_AGES.indexOf(age) - 1] ?? 70
+    if (lastLongAge(s) !== prev) return false
+    if (age <= 100 && onRoute(s)) return true
+    const r = risk(s)
+    for (let a = prev; a < age; a++) if (dies(s, a, r)) return false
+    return true
+  }
+  const odds = (age: number) => (s: GameState) => `📊 ตารางชีพ UN: ${people(s)}ไทยอายุ 70 มีโอกาสอยู่ถึง ${age} ราว ${pct(survive(s, 70, age))}`
   return [
     {
-      id: 'long_80', age: 80, bg: 'park', title: 'แปดสิบยังไหว', cast: ['me'], when: onRoute,
-      because: (s) => `📊 ตารางชีพ UN: ${s.gender === 'girl' ? 'ผู้หญิง' : 'ผู้ชาย'}ไทยอายุ 70 มีโอกาสอยู่ถึง 80 ราว ${pct(survive(s, 70, 80))}`,
+      id: 'long_75', age: 75, bg: 'park', title: 'เจ็ดสิบห้ายังไม่หยุด', cast: ['me'], when: alive(75), because: odds(75),
+      lines: [{ text: 'เพื่อนรุ่นเดียวกันเริ่มบ่นปวดเข่ากันทั้งกลุ่ม... หมอบอกว่าช่วงนี้แหละที่ร่างกายจะเลือกทางว่าจะไปต่อแบบไหน' }],
+      choices: [
+        { text: '🚶 เดินเร็วทุกเช้ากับเพื่อนในซอย', effects: { body: 2, friend: 1 }, memory: 'อายุเจ็ดสิบห้าตั้งก๊วนเดินเร็วตอนเช้า', result: R('จากสองคนเป็นสิบสองคน เดินไปคุยไปจนลืมว่าเหนื่อย') },
+        { text: '🧩 ลงเรียนภาษาญี่ปุ่นออนไลน์', effects: { smart: 2, happy: 1 }, memory: 'อายุเจ็ดสิบห้าเริ่มเรียนภาษาญี่ปุ่น', result: R('สอบวัดระดับผ่านขั้นแรก ครูในคลาสเรียกว่า "นักเรียนรุ่นพี่"') },
+        { text: '🛋️ พักบ้างเถอะ ทำงานมาทั้งชีวิตแล้ว', effects: { happy: 2, body: -1 }, memory: 'อายุเจ็ดสิบห้าพักผ่อนดูละครทุกเรื่อง', result: R('ดูละครจบสามเรื่องในเดือนเดียว... แต่ลุกจากโซฟายากขึ้นทุกวัน') },
+      ],
+    },
+    {
+      id: 'long_80', age: 80, bg: 'park', title: 'แปดสิบยังไหว', cast: ['me'], when: alive(80), because: odds(80),
       lines: [{ text: 'แปดสิบแล้ว ยังปั่นจักรยานไปตลาดเช้าเอง หมอที่ รพ.สต. บอกว่าความดันดีกว่าคนอายุหกสิบบางคนอีก' }],
       choices: [
         { text: '💃 เข้าชมรมผู้สูงอายุ รำวงทุกเย็น', effects: { body: 1, social: 2, happy: 1 }, memory: 'อายุแปดสิบเป็นขาประจำชมรมผู้สูงอายุ', result: R('เพื่อนใหม่วัยเจ็ดสิบแปดสิบเต็มลานวัด หัวเราะกันจนเหนื่อย') },
@@ -29,7 +79,17 @@ export function longevityScenes(onRoute: (s: GameState) => boolean): Scene[] {
       ],
     },
     {
-      id: 'long_90', mood: 'sad', age: 90, bg: 'village', title: 'คนสุดท้ายของรุ่น', cast: ['me'], when: onRoute,
+      id: 'long_85', mood: 'sad', age: 85, bg: 'hospital', title: 'ล้มในห้องน้ำ', cast: ['me'], when: alive(85), because: odds(85),
+      lines: [{ text: 'ลื่นล้มในห้องน้ำตอนตีห้า... โชคดีที่กระดูกไม่หัก แต่หมอบอกว่าครั้งหน้าอาจไม่โชคดีแบบนี้' }],
+      choices: [
+        { text: '🏋️ ทำกายภาพจนกลับมาเดินคล่อง', effects: { body: 3, happy: -1 }, flags: ['healthy'], memory: 'อายุแปดสิบห้าทำกายภาพจนกลับมาเดินได้คล่อง', result: R('สามเดือนที่เหนื่อยที่สุดตั้งแต่เกษียณ... แต่ตอนนี้ขึ้นบันไดวัดได้เองแล้ว') },
+        { text: '🏠 ให้ลูกหลานช่วยปรับบ้าน ติดราวจับทุกห้อง', when: (s) => has(s, 'kid') || has(s, 'met_nong'), effects: { family: 2, body: 1 }, memory: 'อายุแปดสิบห้าให้ลูกหลานช่วยปรับบ้านให้ปลอดภัย', result: R('ราวจับสีขาวทุกห้อง หลานติดสติกเกอร์รูปหัวใจไว้ทุกอัน') },
+        { text: '🏡 ย้ายไปอยู่บ้านพักคนชราที่มีพยาบาล', when: (s) => !has(s, 'kid') && !has(s, 'met_nong'), fin: { cash: -300_000 }, effects: { body: 1, social: 2 }, memory: 'อายุแปดสิบห้าย้ายไปอยู่บ้านพักผู้สูงอายุ', result: R('ห้องข้าง ๆ เป็นครูเกษียณที่เล่นหมากรุกเก่งมาก... ได้คู่แข่งตลอดชีวิตคนใหม่') },
+        { text: '😤 "ไม่เป็นไรหรอก ล้มแค่ครั้งเดียว"', effects: { happy: 1, body: -1 }, memory: 'อายุแปดสิบห้าล้มแล้วไม่ยอมไปหาหมอต่อ', result: R('ยังใช้ชีวิตเหมือนเดิม... แต่เดินช้าลงทุกเดือน') },
+      ],
+    },
+    {
+      id: 'long_90', mood: 'sad', age: 90, bg: 'village', title: 'คนสุดท้ายของรุ่น', cast: ['me'], when: alive(90),
       because: (s) => `📊 ตารางชีพ UN: จากอายุ 70 อยู่ถึง 90 ได้ราว ${pct(survive(s, 70, 90))} — เพื่อนรุ่นเดียวกันส่วนใหญ่จากไปก่อนแล้ว`,
       lines: [{ text: 'งานศพเพื่อนร่วมรุ่นคนสุดท้าย... ในรูปหมู่สมัยเรียน เหลือคุณยิ้มอยู่คนเดียว' }],
       choices: [
@@ -39,8 +99,19 @@ export function longevityScenes(onRoute: (s: GameState) => boolean): Scene[] {
       ],
     },
     {
-      id: 'long_100', age: 100, bg: 'festival', title: 'วันเกิดปีที่ 100', cast: family, when: onRoute,
-      because: (s) => `📊 ตารางชีพ UN: ${s.gender === 'girl' ? 'ผู้หญิง' : 'ผู้ชาย'}ไทยอายุ 70 มีโอกาสอยู่ถึง 100 เพียง ${pct(survive(s, 70, 100))} — คุณคือหนึ่งในนั้น`,
+      id: 'long_95', age: 95, bg: 'garden', title: 'เก้าสิบห้า', cast: family, when: alive(95), because: odds(95),
+      lines: (s) => [has(s, 'kid')
+        ? { who: 'kid', expr: 'happy', text: 'เหลนเพิ่งหัดเดินได้วันนี้! อยากให้ทวดเป็นคนแรกที่เห็น' }
+        : { text: 'ตื่นมาตอนเช้า ได้ยินเสียงนกหน้าบ้านชัดกว่าทุกวัน... วันนี้อยากทำอะไรดีนะ' }],
+      choices: [
+        { text: '🌅 นั่งรับแดดเช้า หายใจช้า ๆ', effects: { happy: 2, body: 1 }, memory: 'อายุเก้าสิบห้านั่งรับแดดเช้าทุกวัน', result: R('ไม่ต้องรีบไปไหนอีกแล้ว... แดดอุ่น ๆ ก็พอแล้วสำหรับวันนี้') },
+        { text: '📞 โทรหาทุกคนที่ยังติดต่อได้', effects: { friend: 2, family: 1, happy: 1 }, memory: 'อายุเก้าสิบห้าโทรหาทุกคนที่ยังติดต่อได้', result: R('บางเบอร์ไม่มีคนรับแล้ว... แต่เบอร์ที่รับ ร้องไห้ดีใจกันทุกสาย') },
+        { text: '🍰 สั่งเค้กมากินเอง ไม่ต้องรอวันเกิด', effects: { happy: 3, body: -1 }, memory: 'อายุเก้าสิบห้าสั่งเค้กมากินเองแบบไม่ต้องรอวันเกิด', result: R('หมอห้ามหวาน... แต่เค้กชิ้นนี้อร่อยที่สุดในรอบสิบปี') },
+      ],
+    },
+    {
+      id: 'long_100', age: 100, bg: 'festival', title: 'วันเกิดปีที่ 100', cast: family, when: alive(100),
+      because: (s) => `📊 ตารางชีพ UN: ${people(s)}ไทยอายุ 70 มีโอกาสอยู่ถึง 100 เพียง ${pct(survive(s, 70, 100))} — คุณคือหนึ่งในนั้น`,
       lines: (s) => [has(s, 'kid')
         ? { who: 'kid', expr: 'happy', text: 'นักข่าวมาขอสัมภาษณ์แน่ะ ถามว่าเคล็ดลับอายุร้อยปีคืออะไร?' }
         : { text: 'นักข่าวท้องถิ่นมาขอสัมภาษณ์คนอายุร้อยปีคนแรกของตำบล "เคล็ดลับคืออะไรครับ?"' }],
@@ -48,6 +119,25 @@ export function longevityScenes(onRoute: (s: GameState) => boolean): Scene[] {
         { text: '🏃 "ขยับตัวทุกวัน"', effects: { body: 1 }, memory: 'อายุร้อยปีบอกว่าเคล็ดลับคือขยับตัวทุกวัน' },
         { text: '😊 "อย่าเก็บเรื่องเครียดไว้ข้ามคืน"', effects: { happy: 1 }, memory: 'อายุร้อยปีบอกว่าเคล็ดลับคือไม่เก็บความเครียดข้ามคืน' },
         { text: '🤝 "มีคนให้คิดถึง และมีคนคิดถึงเรา"', effects: { family: 1 }, memory: 'อายุร้อยปีบอกว่าเคล็ดลับคือมีคนที่รักอยู่รอบตัว' },
+      ],
+    },
+    {
+      id: 'long_105', age: 105, bg: 'home', title: 'ร้อยห้าปี', cast: ['me'], when: alive(105), because: odds(105),
+      lines: [{ text: 'จังหวัดส่งเจ้าหน้าที่มาถ่ายรูปทำเนียบผู้สูงอายุ "คุณอายุมากที่สุดในจังหวัดตอนนี้เลยครับ"' }],
+      choices: [
+        { text: '🎙️ เล่าเรื่องสมัยเด็กให้ฟังจนหมดเทป', effects: { social: 2, happy: 1 }, memory: 'อายุร้อยห้าปีเล่าเรื่องสมัยเด็กลงทำเนียบจังหวัด', result: R('เจ้าหน้าที่ขอมาอัดภาคสองอาทิตย์หน้า... เรื่องยังไม่ถึงครึ่งเลย') },
+        { text: '🖐️ ขอจับมือทุกคนในห้องแทนถ่ายรูป', effects: { happy: 2, family: 1 }, memory: 'อายุร้อยห้าปีขอจับมือทุกคนแทนการถ่ายรูป', result: R('มือเหี่ยว ๆ อุ่นกว่าที่ทุกคนคิด') },
+        { text: '😴 "ขอนอนกลางวันก่อนนะ แล้วค่อยมาใหม่"', effects: { body: 1, happy: 1 }, memory: 'อายุร้อยห้าปีขอนอนกลางวันก่อนให้สัมภาษณ์', result: R('ตื่นมาตอนบ่ายสาม เจ้าหน้าที่ยังนั่งรอพร้อมขนมหม้อแกง') },
+      ],
+    },
+    {
+      id: 'long_110', age: 110, bg: 'festival', title: 'ร้อยสิบปี', cast: family, when: alive(110),
+      because: () => '📊 คนที่อายุเกิน 110 ปีทั่วโลกมีไม่ถึงพันคน — เลยจากนี้ทุกปีคือสถิติใหม่ของคุณ',
+      lines: [{ text: 'ร้อยสิบปี... ข่าวไปไกลถึงต่างประเทศ มีคนส่งการ์ดอวยพรมาจากญี่ปุ่นกับอิตาลี' }],
+      choices: [
+        { text: '🎂 เป่าเทียนเองให้ได้ทุกเล่ม', effects: { body: 1, happy: 2 }, memory: 'อายุร้อยสิบปีเป่าเทียนวันเกิดเองจนหมด', result: R('เป่าสามรอบกว่าจะหมด... ทั้งงานปรบมือเหมือนเพิ่งได้แชมป์') },
+        { text: '💌 เขียนการ์ดตอบทุกใบด้วยลายมือ', effects: { art: 1, social: 2 }, memory: 'อายุร้อยสิบปีเขียนการ์ดตอบคนทั่วโลกด้วยลายมือ', result: R('ลายมือสั่นนิดหน่อย แต่ทุกใบลงท้ายว่า "ใช้ชีวิตให้คุ้มนะ"') },
+        { text: '🤫 "เคล็ดลับคือ... ยังไม่บอกหรอก"', effects: { happy: 3 }, memory: 'อายุร้อยสิบปียังไม่ยอมบอกเคล็ดลับอายุยืน', result: R('ทั้งห้องหัวเราะ... ความลับนี้คงต้องรอวันเกิดปีหน้า') },
       ],
     },
   ]

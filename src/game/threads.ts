@@ -141,6 +141,8 @@ export const THREADS: Scene[] = [
         result: [{ who: 'ton', expr: 'happy', text: 'แก้วนี้ให้เพื่อนที่ยืนบังเราไว้!' }] },
       { text: '👍 ยินดีด้วยนะ', effects: { friend: 1 }, memory: 'แสดงความยินดีกับต้นทางโทรศัพท์',
         result: [{ who: 'ton', text: 'ไว้ว่างมาเจอกันนะเพื่อน' }] },
+      { text: '🚗 อาสาขับไปส่งวันรายงานตัว', flags: ['ton_t1'], effects: { friend: 3, happy: 1 }, memory: 'ขับรถไปส่งต้นรายงานตัวที่โรงเรียนนายร้อย',
+        result: [{ who: 'ton', expr: 'happy', text: 'ตื่นตีสี่มาส่งเราเลยเหรอ... เพื่อนแบบนี้หาไม่ได้แล้วนะ' }] },
     ],
   }),
   ...thread({
@@ -165,6 +167,8 @@ export const THREADS: Scene[] = [
         result: [{ text: 'แม่ต้นจับมือแน่น "ลูกอีกคนของแม่"' }] },
       { text: '❤️ ส่งสติกเกอร์หัวใจ', effects: { friend: 1 }, memory: 'ตอบข้อความต้นด้วยสติกเกอร์',
         result: [{ who: 'ton', text: '(ส่งรูปแม่ยิ้มถือป้าย "ขอบคุณ {name}" กลับมา)' }] },
+      { text: '📦 ส่งของขวัญกลับไปให้แม่ต้น', fin: { cash: -3_000 }, effects: { friend: 1, family: 1, happy: 1 }, memory: 'ส่งของขวัญวันเกิดไปให้แม่ของต้น',
+        result: [{ who: 'ton', text: 'แม่ห่อของขวัญเก็บไว้ไม่ยอมแกะ บอกว่าเสียดาย 😂' }] },
     ],
   }),
 

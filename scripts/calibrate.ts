@@ -1,4 +1,4 @@
-// คำนวณ "ค่าปกติตอนอายุ 70" ของแต่ละค่าสถานะ จากชีวิตจำลอง → src/game/statBaseline.json
+// คำนวณ "ค่าปกติตอนจบชีวิต" (รวมฉากหลังวันเกิด 70) ของแต่ละค่าสถานะ จากชีวิตจำลอง → src/game/statBaseline.json
 // รันใหม่ทุกครั้งที่เพิ่ม/แก้เนื้อหา: npx tsx scripts/calibrate.ts · โหมดทดลองเล่น: npx tsx scripts/calibrate.ts quick → statBaselineQuick.json
 import fs from 'node:fs'
 import { applyChoice, getScene, newGame, nextSceneId, passYears, visibleChoices } from '../src/game/engine'

@@ -11,7 +11,7 @@ import { FEAR_SCENES, KARMA_SCENES, ROAD_SCENES } from './karma'
 import { JOB_SCENES } from './jobs'
 import { BLUE, CROSS, DAD_PASS, HEIR, JOBLESS, LATER, LOVE2, WEIRD2 } from './later'
 import { MONK_SCENES, monkAllows, monkBans } from './monk'
-import { longevityScenes } from './longevity'
+import { deathAge, longevityScenes } from './longevity'
 import BASELINE from './statBaseline.json'
 import BASELINE_QUICK from './statBaselineQuick.json'
 import { withTraitLines } from './personaHooks'
@@ -70,7 +70,7 @@ function passVariants(base: Scene, who: 'mom' | 'dad'): Scene[] {
 const MOM_PASS = DRAMA.find((sc) => sc.id === 'mom_pass')!
 const PARENT_SCENES = [...passVariants(MOM_PASS, 'mom'), ...passVariants(DAD_PASS, 'dad')]
 
-export const SCENES = [...KARMA_SCENES, ...BASE, ...EVENTS, ...LIFE, ...DRAMA.filter((sc) => sc.id !== 'mom_pass'), ...PARENT_SCENES, ...BOND_SCENES, ...CARDS, ...SECRET_SCENES, ...THREADS, ...FLAG_SCENES, ...FEAR_SCENES, ...ROAD_SCENES, ...JOB_SCENES, ...MONK_SCENES, ...LATER, ...LOVE2, ...CROSS, ...WEIRD2, ...HEIR, ...JOBLESS, ...BLUE, ...longevityScenes(onLongLife)]
+export const SCENES = [...KARMA_SCENES, ...BASE, ...EVENTS, ...LIFE, ...DRAMA.filter((sc) => sc.id !== 'mom_pass'), ...PARENT_SCENES, ...BOND_SCENES, ...CARDS, ...SECRET_SCENES, ...THREADS, ...FLAG_SCENES, ...FEAR_SCENES, ...ROAD_SCENES, ...JOB_SCENES, ...MONK_SCENES, ...LATER, ...LOVE2, ...CROSS, ...WEIRD2, ...HEIR, ...JOBLESS, ...BLUE, ...longevityScenes(lifeRisk, onLongRoute)]
   .map(withTraitLines)
   .map((sc) => (BECAUSE[sc.id] && !sc.because ? { ...sc, because: BECAUSE[sc.id] } : sc))
   .map((sc) => (OPTIONAL[sc.id] !== undefined ? { ...sc, chance: OPTIONAL[sc.id] * 0.8 } : sc))
@@ -286,7 +286,7 @@ const RANKED: StatKey[] = ['smart', 'body', 'art', 'social', 'happy', 'money', '
 export function statProfile(s: GameState) {
   const st = s.stats
   const base = (s.quick ? BASELINE_QUICK : BASELINE) as Record<string, number>
-  /** คะแนนเทียบชีวิตทั่วไป: 1.0 = เท่าค่าปกติตอนอายุ 70 (ดู scripts/calibrate.ts) */
+  /** คะแนนเทียบชีวิตทั่วไป: 1.0 = เท่าค่าปกติตอนจบชีวิต (ดู scripts/calibrate.ts) */
   const score = (k: StatKey) => (st[k] + 4) / (Math.max(1, base[k] ?? 1) + 4)
   const vals = RANKED.map(score).sort((a, b) => a - b)
   const median = vals[Math.floor(vals.length / 2)]
@@ -318,9 +318,10 @@ export function endingRules(s: GameState): EndRule[] {
   const isLow = (k: StatKey, n: number) => ({ label: `${name(k)} อยู่ ${n} อันดับท้าย (ตอนนี้อันดับ ${P.low(k)} จากท้าย)`, ok: P.low(k) <= n })
   const below = (k: StatKey) => ({ label: `${name(k)} อ่อนกว่าค่ากลางของชีวิตนี้`, ok: P.score(k) < P.median })
   const cs = s.career ? CAREER_STAT[s.career] : null
-  const reached100 = s.visited?.includes('long_100')
+  // เส้นทางร้อยปี: ครบทุกข้อ = รอดถึง 100 แน่นอน (ความฝันอายุยืนจึงไปถึงได้เสมอ)
+  // คนที่ไม่ครบแต่ทอยรอดถึง 100 ได้เอง ยังได้ฉากจบตามค่าที่เด่นเหมือนเดิม (อายุเป็นสถิติแยกต่างหาก)
   const rules: EndRule[] = [
-    { id: 'centenarian', checks: reached100 ? [{ label: '🎂 อยู่ถึงวันเกิดปีที่ 100', ok: true }] : [
+    { id: 'centenarian', checks: [
       isLead('body'), isTop2('happy'),
       { label: '🏃 เคยเปลี่ยนมาดูแลสุขภาพจริงจัง (ออกกำลังกาย/เลิกเหล้าบุหรี่/ไปหาหมอทันเวลา)', ok: has('healthy') },
       { label: '🧘 ไม่บ้างานจนเครียดเรื้อรัง (หรือเกษียณเร็ว)', ok: !has('workaholic') || has('early_retire') },
@@ -346,15 +347,37 @@ export function endingRules(s: GameState): EndRule[] {
   if (i > 0) rules.unshift(...rules.splice(i, 1))
   return rules
 }
-/** ยังอยู่บนเส้นทางร้อยปีไหม — ใช้เปิดฉาก 80/90/100 หลังวันเกิด 70 (function ประกาศแบบ hoist เพราะ SCENES เรียกใช้ก่อนถึงบรรทัดนี้) */
-function onLongLife(s: GameState) {
+/**
+ * 🎂 ปัจจัยอายุยืนหลังวันเกิด 70: คูณกับโอกาสเสียชีวิตต่อปีตามตารางชีพ UN (1 = คนไทยทั่วไป)
+ * ใช้ทั้งทอยรอดทีละปี (longevity.ts) และแสดงผลตอนจบว่าอะไรช่วย/ฉุดให้อายุยืน
+ * (function ประกาศแบบ hoist เพราะ SCENES เรียกใช้ก่อนถึงบรรทัดนี้)
+ */
+export function lifeFactors(s: GameState): { label: string; mult: number }[] {
+  const has = (f: string) => s.flags.includes(f)
+  const P = statProfile(s)
+  const f: { label: string; mult: number }[] = []
+  if (has('healthy')) f.push({ label: '🏃 เคยเปลี่ยนมาดูแลสุขภาพจริงจัง', mult: 0.6 })
+  if (P.rank('body') <= 2) f.push({ label: '💪 ร่างกายเด่นติด 2 อันดับแรก', mult: 0.75 })
+  else if (P.low('body') <= 2) f.push({ label: '💪 ร่างกายอ่อนติด 2 อันดับท้าย', mult: 1.35 })
+  if (P.rank('happy') <= 3) f.push({ label: '😊 ความสุขติด 3 อันดับแรก', mult: 0.85 })
+  else if (P.low('happy') <= 2) f.push({ label: '😊 ความสุขอยู่ 2 อันดับท้าย', mult: 1.2 })
+  if (has('workaholic') && !has('early_retire')) f.push({ label: '🥀 บ้างานจนเครียดเรื้อรัง', mult: 1.25 })
+  if (Math.min(P.rank('family'), P.rank('friend')) > 4) f.push({ label: '🫥 ครอบครัวและเพื่อนไม่ติด 4 อันดับแรก (อยู่อย่างโดดเดี่ยว)', mult: 1.2 })
+  return f
+}
+function lifeRisk(s: GameState) {
+  return lifeFactors(s).reduce((r, x) => r * x.mult, 1)
+}
+/** อยู่บนเส้นทางร้อยปีครบทุกข้อ → ไม่ต้องทอยจนถึงวันเกิด 100 */
+export function onLongRoute(s: GameState) {
   return !s.endId && endingRules(s).find((r) => r.id === 'centenarian')!.checks.every((c) => c.ok)
 }
-/** อายุตอนจบชีวิต: ร้อยปี / จบกลางทางตามฉาก / หรือฉากหลังเส้นทางร้อยปีที่ไปถึง (หลุดเส้นทางตอน 80–90 ก็จบที่อายุนั้น) */
-export function endAgeOf(s: GameState, e: Ending) {
-  if (e.id === 'centenarian') return 100
+/** อายุตอนจบชีวิต: จบกลางทางตามฉาก / หรือทอยต่อทีละปีหลังวันเกิด 70 ไม่มีเพดาน (ดู longevity.ts) */
+export function endAgeOf(s: GameState, _e?: Ending) {
   if (s.endAge) return s.endAge
-  return Math.max(70, ...(s.visited ?? []).filter((id) => id.startsWith('long_')).map((id) => getScene(id).age))
+  // โหมดทดลองเล่นจบที่วันเกิด 70 (ไม่มีฉากหลัง 70) — ฉากจบร้อยปีนับจากเส้นทางเหมือนเดิม
+  if (s.quick) return _e?.id === 'centenarian' ? 100 : 70
+  return deathAge(s, lifeRisk(s), onLongRoute(s))
 }
 /** ฉากจบประหลาด: ต้องเก็บธงหลายอัน */
 export function weirdRules(s: GameState): EndRule[] {

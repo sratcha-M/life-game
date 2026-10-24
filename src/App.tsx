@@ -3,7 +3,7 @@ import { Background } from './art/Background'
 import { Character, NAMES, kidName } from './art/Character'
 import {
   applyChoice, CAREERS, dropSave, fmtBaht, listSaves, netWorth, passYears, married, ENDINGS, fillText, getScene, HIDDEN_LABEL, newGame, nextSceneId, slotId, type SaveSlot,
-  partnerName, pickEnding, endAgeOf, statProfile, nearestEndings, endingRules, weirdRules, rememberScenes, resolveLines, save, STAT_INFO, unlockedEndings, unlockEnding, visibleChoices,
+  partnerName, pickEnding, endAgeOf, lifeFactors, onLongRoute, statProfile, nearestEndings, endingRules, weirdRules, rememberScenes, resolveLines, save, STAT_INFO, unlockedEndings, unlockEnding, visibleChoices,
 } from './game/engine'
 import { stageOf } from './game/story'
 import { SwipeChoice, splitIcon } from './components/SwipeChoice'
@@ -110,7 +110,7 @@ function Title({ trial, latest, onNew, onContinue, onAlbum }: { trial: boolean; 
       <div className="relative z-10 flex h-full flex-col items-center justify-end px-4 pb-[8dvh] text-center">
         <p className="font-display text-sm tracking-[0.3em] text-white/90 drop-shadow">LIFE · PATH</p>
         <h1 className="font-display text-5xl font-semibold text-white drop-shadow-[0_3px_0_#e0707f] sm:text-7xl">เส้นทางชีวิต</h1>
-        <p className="mt-2 max-w-md text-base text-white/90 drop-shadow sm:text-lg">ตั้งแต่แรกเกิดจนถึงวันเกิดปีที่ 70 คุณจะเติบโตเป็นใคร?</p>
+        <p className="mt-2 max-w-md text-base text-white/90 drop-shadow sm:text-lg">ตั้งแต่แรกเกิดจนลมหายใจสุดท้าย คุณจะเติบโตเป็นใคร และอยู่ได้ถึงกี่ปี?</p>
         <div className="mt-6 flex w-full max-w-xs flex-col gap-3">
           {latest && <Btn primary onClick={onContinue}>▶ เล่นต่อ <span className="text-base opacity-85">· {latest.name}</span></Btn>}
           <Btn primary={!hasSave} onClick={onNew}>{trial ? <>⚡ ทดลองเล่น <span className="text-base opacity-85">· ~5 นาที</span></> : '✨ เริ่มชีวิตใหม่'}</Btn>
@@ -809,13 +809,13 @@ function Play({ initial, onQuit, onEnd }: { initial: GameState; onQuit: () => vo
                 const locked = lockOf(c)
                 return (
                   <button key={c.text} onClick={() => pick(c)} disabled={!!locked} style={{ animationDelay: `${i * 0.06}s` }}
-                    className={`popin relative flex flex-col items-center justify-center gap-1 rounded-3xl border-4 px-3 py-4 text-center shadow-lg transition ${locked ? 'cursor-not-allowed border-white/40 bg-[#3a3346]/80' : c.trait ? 'border-[#ffd166] bg-[#fffaf0] shadow-[0_0_18px_rgba(255,209,102,.7)] hover:-translate-y-1 active:scale-95' : 'border-white bg-white/95 hover:-translate-y-1 hover:border-[#f6b5c2] active:scale-95'}`}>
-                    {c.trait && !locked && <span className="whitespace-nowrap rounded-full bg-[#ffd166] px-2 py-0.5 text-[.75rem] font-semibold text-[#6a4a00]">✨ ตัวเลือกจากนิสัย</span>}
+                    className={`popin relative flex flex-col items-center justify-center gap-1 rounded-3xl border-4 px-3 py-4 text-center shadow-lg transition ${locked ? 'cursor-not-allowed border-white/40 bg-[#3a3346]/80' : c.trait || c.job ? 'border-[#ffd166] bg-[#fffaf0] shadow-[0_0_18px_rgba(255,209,102,.7)] hover:-translate-y-1 active:scale-95' : 'border-white bg-white/95 hover:-translate-y-1 hover:border-[#f6b5c2] active:scale-95'}`}>
+                    {(c.trait || c.job) && !locked && <span className="whitespace-nowrap rounded-full bg-[#ffd166] px-2 py-0.5 text-[.75rem] font-semibold text-[#6a4a00]">{c.trait ? '✨ ตัวเลือกจากนิสัย' : '💼 ตัวเลือกจากอาชีพ'}</span>}
                     <span className={`text-4xl sm:text-5xl ${locked ? 'opacity-40 grayscale' : ''}`}>{icon}</span>
                     <span className={`font-display text-[.9375rem] leading-snug sm:text-base ${locked ? 'text-white/60' : 'text-[#4a2c38]'}`}>{label}</span>
                     {locked
                       ? <span className="rounded-full bg-black/30 px-2 py-0.5 text-[.75rem] text-[#ffd6de]">🔒 {locked}</span>
-                      : c.hint && <span className={`rounded-full px-2 py-0.5 text-[.75rem] ${c.trait ? 'bg-[#fff1c9] text-[#7a5a00]' : 'bg-[#f3eef7] text-[#7a5a96]'}`}>{c.hint}</span>}
+                      : c.hint && <span className={`rounded-full px-2 py-0.5 text-[.75rem] ${c.trait || c.job ? 'bg-[#fff1c9] text-[#7a5a00]' : 'bg-[#f3eef7] text-[#7a5a96]'}`}>{c.hint}</span>}
                   </button>
                 )
               })}
@@ -1041,7 +1041,7 @@ function StockDetails({ s }: { s: GameState }) {
 
 const END_HINT: Record<string, string> = {
   legend: 'ทักษะหลักของอาชีพต้องเด่นที่สุดในชีวิต', family: 'ครอบครัวเด่นติด 2 อันดับแรก และอยู่กับคู่ชีวิตจนแก่', friend: 'มิตรภาพเด่นติด 2 อันดับแรก', free: 'ความสุขเด่นติด 2 อันดับแรก หรือใช้ชีวิตแบบนักฝัน',
-  home: 'มีรากที่ต่างจังหวัด กลับบ้านเกิดตอนเกษียณ และครอบครัว/ความสุขติด 3 อันดับแรก', centenarian: 'ร่างกายเด่น ความสุขติด 2 อันดับแรก ดูแลสุขภาพจริงจัง ไม่บ้างาน และไม่โดดเดี่ยว — แล้วอยู่ให้รอดถึง 100', ordinary: 'ไม่มีค่าไหนเด่นกว่าค่าอื่นชัดเจน',
+  home: 'มีรากที่ต่างจังหวัด กลับบ้านเกิดตอนเกษียณ และครอบครัว/ความสุขติด 3 อันดับแรก', centenarian: 'อยู่ให้รอดถึงวันเกิด 100 — ร่างกายเด่น ความสุขติด 2 อันดับแรก ดูแลสุขภาพจริงจัง ไม่บ้างาน และไม่โดดเดี่ยว = รอดถึง 100 แน่นอน (ไม่ครบก็ยังลุ้นได้)', ordinary: 'ไม่มีค่าไหนเด่นกว่าค่าอื่นชัดเจน',
   lonelyrich: 'เงินเด่น แต่ครอบครัวและความรักอ่อน', regret: 'ความสุขและครอบครัวอยู่ท้ายตาราง', accident: 'ความเร็วตอนวัยรุ่น', jail: 'เงินง่าย ๆ ที่ผิดกฎหมาย',
   fugitive: 'หนีเมื่อความผิดตามมาทัน', bankrupt: 'กู้หนี้จนเกินตัว', overwork: 'ทำงานหนักไม่พัก', heart: 'ไม่ยอมไปหาหมอ',
   alien: 'เก็บธง 3 อัน: หินอุกกาบาต → ถอดรหัส → ยาน', cat: 'เก็บธง 3 อัน: โกโก้ → สลับร่าง → แมวในใจ', ghost: 'เก็บธง 3 อัน: ใต้ถุนบ้าน → ความฝัน → อายุ 70',
@@ -1064,7 +1064,8 @@ function EndingCompass({ s }: { s: GameState }) {
           {steps.length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{steps.map((c) => <span key={c.label} className={`rounded-full px-2 py-0.5 text-[.75rem] ${c.ok ? 'bg-[#eaf7ef] text-[#2f6a4a]' : 'bg-white text-[#8a6a76]'}`}>{c.ok ? '✅' : '○'} {c.label}</span>)}</div>}
         </div>
       )}
-      <div className="font-display text-xl text-[#5a3443]">🧭 ฉากจบวันเกิด 70</div>
+      {!s.quick && <LifeFactors s={s} className="mb-3" />}
+      <div className="font-display text-xl text-[#5a3443]">🧭 ฉากจบ</div>
       <div className="text-[.8125rem] leading-[1.6] text-[#8a6a76]">ฉากจบดูจาก <b className="font-normal text-[#3a2433]">ค่าที่เด่นที่สุด 2 อันดับแรก</b> ของชีวิตนี้ (เทียบกับชีวิตทั่วไป) ไม่ใช่ตัวเลขตายตัว</div>
       <div className="mt-1 text-[.8125rem] text-[#5a3443]">ตอนนี้เด่นที่สุด: {statProfile(s).top.map((k) => { const i = STAT_INFO.find((x) => x.key === k); return i ? `${i.icon} ${i.label}` : ({ family: '🏠 ครอบครัว', friend: '🤝 เพื่อน', love: '❤️ ความรัก' } as Record<string, string>)[k] }).join(' · ')}</div>
       <div className={`mt-2 rounded-xl px-3 py-2 ${now.bad ? 'bg-[#fdecef]' : 'bg-[#eaf7ef]'}`}><span className="text-xl">{E(now.id).emoji}</span> <b className="font-display font-normal text-[#3a2433]">{E(now.id).title}</b></div>
@@ -1082,6 +1083,23 @@ function EndingCompass({ s }: { s: GameState }) {
           <div className="mt-0.5 flex flex-wrap gap-1">{r.checks.map((c) => <span key={c.label} className={`rounded-full px-2 py-0.5 text-[.75rem] ${c.ok ? 'bg-white text-[#4a3a7a]' : 'bg-white/50 text-[#9a8ab6]'}`}>{c.ok ? '✅' : '❔'} {c.ok ? c.label : '???'}</span>)}</div>
         </div>
       ))}
+    </div>
+  )
+}
+
+/** 🎂 ปัจจัยอายุยืน: หลังวันเกิด 70 ชีวิตเดินต่อจนกว่าจะทอยไม่รอด — สิ่งเหล่านี้ทำให้รอดง่าย/ยากขึ้น */
+function LifeFactors({ s, className = '' }: { s: GameState; className?: string }) {
+  const f = lifeFactors(s)
+  const route = onLongRoute(s)
+  return (
+    <div className={`rounded-xl bg-[#eef6f1] px-3 py-2.5 ${className}`}>
+      <div className="font-display text-lg text-[#2f6a4a]">🎂 อายุยืนแค่ไหน?</div>
+      <div className="text-[.8125rem] leading-[1.6] text-[#4f7a62]">หลังวันเกิด 70 ชีวิตเดินต่อไม่มีเพดาน ทุกปีทอยรอดตามตารางชีพ UN — สิ่งเหล่านี้ทำให้รอดง่ายหรือยากขึ้น</div>
+      <div className="mt-1.5 flex flex-wrap gap-1">
+        {route && <span className="rounded-full bg-[#3fae78] px-2 py-0.5 text-[.75rem] text-white">🛡️ อยู่บนเส้นทางร้อยปี — รอดถึง 100 แน่นอน</span>}
+        {f.length ? f.map((x) => <span key={x.label} className={`rounded-full px-2 py-0.5 text-[.75rem] ${x.mult < 1 ? 'bg-white text-[#2f6a4a]' : 'bg-[#fdecef] text-[#a04050]'}`}>{x.mult < 1 ? '⬆️' : '⬇️'} {x.label}</span>)
+          : <span className="rounded-full bg-white px-2 py-0.5 text-[.75rem] text-[#6a7a70]">ยังไม่มีอะไรช่วยหรือฉุด — เท่าคนไทยทั่วไป</span>}
+      </div>
     </div>
   )
 }
@@ -1177,6 +1195,8 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
   const [ending] = useState<Ending>(() => pickEnding(s))
   const [isNew] = useState(() => !unlockedEndings().includes(ending.id))
   const age = endAgeOf(s, ending)
+  // สถิติอายุยืนที่สุดจากชีวิตก่อน ๆ (อ่านก่อน recordLife ด้านล่างจะบันทึกชีวิตนี้)
+  const [best] = useState(() => Math.max(0, ...lifeRecords().map((l) => l.age)))
   const dream = dreamOf(s)
   const [dreamOk] = useState(() => !!dream && dream.check(s, ending))
   const [newAchs, setNewAchs] = useState<Ach[]>([])
@@ -1261,6 +1281,19 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
             </div>
             <h2 className="mt-2 font-display text-3xl leading-snug text-[#5a3443] sm:text-4xl">{ending.emoji} {ending.title}</h2>
             <p className="mt-1 text-[#5a4a52]">{ending.desc}</p>
+            {!s.quick && (
+              <div className={`mt-3 flex items-center justify-between gap-3 rounded-2xl px-4 py-2.5 ${age > best && best > 0 ? 'bg-[#fff4d6]' : 'bg-[#eef6f1]'}`}>
+                <div className="min-w-0">
+                  <div className="text-[.8125rem] text-[#6a7a70]">🎂 อายุตอนจากไป</div>
+                  <div className="font-display text-2xl text-[#2f6a4a]">{age} ปี</div>
+                </div>
+                <div className="text-right text-[.8125rem] leading-snug">
+                  {age > best && best > 0 ? <span className="font-display text-base text-[#8a5a00]">🏅 สถิติใหม่!<br /><span className="text-[.75rem] text-[#a07a30]">เดิม {best} ปี</span></span>
+                    : best > 0 ? <span className="text-[#6a7a70]">สถิติของคุณ<br /><b className="font-display font-normal text-[#3a2433]">{best} ปี</b></span>
+                    : <span className="text-[#6a7a70]">ชีวิตแรก<br />= สถิติแรกของคุณ</span>}
+                </div>
+              </div>
+            )}
 
             {dream && (
               <div className={`popin mt-4 flex items-center gap-3 rounded-2xl border-2 p-3 ${dreamOk ? 'border-[#8fd3a8] bg-[#eefaf2]' : 'border-[#e6e1e4] bg-[#f5f3f4]'}`} style={{ animationDelay: '.4s' }}>
@@ -1378,6 +1411,7 @@ function EndingScreen({ s, onTitle, onAgain, onReborn, onLegacy }: { s: GameStat
               </div>
             )}
             <EndingWhy s={s} ending={ending} />
+            {!s.quick && !s.endId && <LifeFactors s={s} className="mt-3" />}
             {!s.quick && <RoadsNotTaken s={s} />}
             {!s.quick && s.lineage?.length ?<FamilyTree lineage={s.lineage} me={{ name: s.name, emoji: ending.emoji, age }} /> : null}
             <div className="mt-5"><LifeLog s={s} collapsible /></div>

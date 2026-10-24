@@ -1,11 +1,11 @@
 {
  "smart": 3,
  "body": 1,
- "art": 2,
+ "art": 3,
  "social": 5,
- "happy": 9,
+ "happy": 10,
  "money": 7,
- "family": 7,
+ "family": 6,
  "friend": 1,
  "love": 1
 }

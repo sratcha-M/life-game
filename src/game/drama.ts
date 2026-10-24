@@ -41,6 +41,8 @@ export const DRAMA: Scene[] = [
         result: [{ who: 'yai', expr: 'happy', text: 'มาแล้วเหรอหลาน... ยายดีใจ' }] },
       { text: '🏆 แข่งให้จบก่อน แล้วค่อยไป', onTimeout: true, effects: { smart: 2, happy: -3 }, flags: ['missed_yai'], memory: 'ไปหายายไม่ทัน เพราะอยู่ที่สนามแข่ง',
         result: [{ text: 'ได้เหรียญทองมา... แต่ไปถึงโรงพยาบาลช้าไปสิบนาที' }] },
+      { text: '📹 วิดีโอคอลหายายตอนพักครึ่ง', effects: { family: 1, smart: 1, happy: -1 }, memory: 'วิดีโอคอลคุยกับยายครั้งสุดท้ายจากสนามแข่ง',
+        result: [{ who: 'yai', expr: 'happy', text: '(ยายยิ้มให้กล้องช้า ๆ) ...แข่งให้เต็มที่นะหลาน ยายดูอยู่' }] },
     ],
   },
   {

@@ -103,9 +103,10 @@ export function SwipeChoice({ speaker, text, choices, fill, lockOf, onPick, onLo
           const locked = lockOf(c)
           return (
             <button key={dir} onClick={() => commit(dir)}
-              className={`popin flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-2xl px-2 py-2 text-center shadow-lg sm:py-3 lg:gap-1 lg:py-4 transition active:scale-95 ${dir === 'up' ? 'order-2' : dir === 'right' ? 'order-3' : 'order-1'} ${locked ? 'bg-[#3a3346]/85 text-white/60' : 'bg-white/90 text-[#4a2c38] hover:bg-white'}`}>
+              className={`popin flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-2xl px-2 py-2 text-center shadow-lg sm:py-3 lg:gap-1 lg:py-4 transition active:scale-95 ${dir === 'up' ? 'order-2' : dir === 'right' ? 'order-3' : 'order-1'} ${locked ? 'bg-[#3a3346]/85 text-white/60' : c.trait || c.job ? 'bg-[#fffaf0] text-[#4a2c38] ring-4 ring-[#ffd166] hover:bg-white' : 'bg-white/90 text-[#4a2c38] hover:bg-white'}`}>
               <span className={`text-2xl sm:text-3xl lg:text-4xl ${locked ? 'grayscale' : ''}`}>{locked ? '🔒' : icon}</span>
               <span className="line-clamp-2 font-display text-[.8125rem] leading-tight sm:text-base lg:text-lg">{label}</span>
+              {(c.trait || c.job) && !locked && <span className="rounded-full bg-[#ffd166] px-1.5 text-[.6875rem] font-semibold text-[#6a4a00]">{c.trait ? '✨ จากนิสัย' : '💼 จากอาชีพ'}</span>}
               <span className="text-[.75rem] text-[#c0909c]">{ARROW[dir]}</span>
             </button>
           )

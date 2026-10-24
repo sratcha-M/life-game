@@ -153,6 +153,8 @@ export interface Choice {
   hint?: string
   /** ตัวเลือกพิเศษที่ปลดล็อกจากนิสัยเด่น */
   trait?: 'kind' | 'greed' | 'brave' | 'smart' | 'selfish' | 'funny' | 'endure' | 'fragile'
+  /** ตัวเลือกพิเศษที่ปลดล็อกจากอาชีพ */
+  job?: boolean
   when?: (s: GameState) => boolean
   effects?: Partial<Stats>
   flags?: string[]
