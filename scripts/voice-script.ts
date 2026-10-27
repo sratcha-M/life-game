@@ -1,6 +1,7 @@
 // สร้างสคริปต์พากย์จากเนื้อเรื่องทั้งหมด: npx tsx scripts/voice-script.ts <outdir>
 // - เขียน src/game/voiceIds.json (ข้อความ → ชื่อไฟล์) ให้เกมรู้ว่าบทไหนใช้ไฟล์เสียงอะไร
 // - เขียน voice-script.csv และ voice-script.md ไว้ส่งให้นักพากย์ / โปรแกรม TTS
+// - เขียน voice-template.csv (file,prio,who,voice,prompt,age,mood,gender,text) เฉพาะบทที่ยังไม่มีไฟล์เสียง
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { newGame, resolveLines, SCENES } from '../src/game/engine'
 import type { GameState, Line, Lines } from '../src/game/types'
@@ -66,7 +67,21 @@ for (const sc of SCENES) {
   })
 }
 
+// บทเดิมที่สถานะตัวอย่างข้างบนไม่ได้สร้าง (เช่น ข้อความที่ขึ้นกับอาชีพ) ต้องอยู่ต่อ ไม่งั้นไฟล์เสียงที่อัดไว้แล้วจะหลุด
+for (const [k, v] of Object.entries(OLD)) if (!map[k]) map[k] = v
 writeFileSync('src/game/voiceIds.json', JSON.stringify(map, null, 0))
+
+/**
+ * บทย้อนอดีตที่มีอายุในประโยค: สถานะตัวอย่างไม่มีอายุจริง จึงได้ "undefined" / "0 ปี" → ให้เสียงพูดคำกลาง ๆ แทนตัวเลข
+ * (เกมจับคู่บทเหล่านี้ด้วยตัวเลขอะไรก็ได้ ดู AGED ใน src/lib/voice.ts)
+ */
+const spoken = (t: string) => t
+  .replace(/ตั้งแต่อายุ undefined/g, 'ตั้งแต่ยังหนุ่มสาว')
+  .replace(/เมื่ออายุ undefined/g, 'เมื่อหลายปีก่อน')
+  .replace(/ตอน(?:เรา|เธอ|พี่|นาย|ฉัน|หนู)?อายุ undefined/g, 'ตอนนั้น')
+  .replace(/เมื่อ 0 ปีก่อน/g, 'เมื่อหลายปีก่อน')
+  .replace(/ครบ 0 ปีที่/g, 'ครบรอบวันที่')
+  .replace(/อายุ undefined/g, 'ตอนนั้น')
 
 // บทที่ยังไม่มีไฟล์เสียง → ใส่ลงหน้า voice-studio.html (สร้างเสียงด้วย Gemini TTS)
 const have = new Set(readdirSync('src/assets/voice').map((f) => f.replace(/\.\w+$/, '')))
@@ -76,7 +91,7 @@ const todo = rows.flatMap((r) => {
   return (split ? (['m', 'f'] as const) : ([''] as const)).filter((g) => !have.has(g ? `${r.id}_${g}` : r.id)).map((g) => {
     // ไฟล์ _m = ผู้เล่นชาย ยกเว้นบทของฟ้า (_m = ฟ้าเป็นผู้ชาย = ผู้เล่นหญิง) ดู speak() ใน src/lib/voice.ts
     const boy = r.key === 'fah' ? g === 'f' : g !== 'f'
-    const text = r.raw.replace(/\(.*?\)/g, '').replaceAll('{name}', '').replaceAll('{fah}', 'แฟน')
+    const text = spoken(r.raw).replace(/\(.*?\)/g, '').replaceAll('{name}', '').replaceAll('{fah}', 'แฟน')
       .replaceAll('{krub}', boy ? 'ครับ' : 'ค่ะ').replaceAll('{chan}', boy ? 'ผม' : 'หนู')
       .replace(/""|“”/g, '').replace(/\s+([!?.,…])/g, '$1').replace(/\s{2,}/g, ' ').trim()
     return { file: g ? `${r.id}_${g}` : r.id, id: r.id, prio: r.prio, who: r.key, whoName: r.who, age: r.voiceAgeN, voice: g || 'm', mood: r.mood, text }
@@ -85,6 +100,27 @@ const todo = rows.flatMap((r) => {
 writeFileSync(`${out}/voice-studio.html`, readFileSync('scripts/voice-studio.html', 'utf8').replace('/*TODO*/[]', JSON.stringify(todo)))
 console.log('voice-studio:', todo.length, 'files to generate')
 const esc = (s: string) => `"${s.replace(/"/g, '""')}"`
+
+// ── voice-template.csv: แบบฟอร์มเดียวกับ lifepath_voice_template.csv (เสียง Gemini ตามตาราง DEFAULT_VOICES ใน voice-studio.html) ──
+const VOICES = Object.fromEntries([...readFileSync('scripts/voice-studio.html', 'utf8').matchAll(/^\s+(\w+): \['(\w+)', '([^']*)'\],?$/gm)].map((m) => [m[1], { name: m[2], style: m[3] }]))
+const voiceKey = (who: string, a: number, g: string) => {
+  const life = a < 3 ? 'baby' : a < 13 ? 'kid' : a < 19 ? 'teen' : a < 60 ? 'adult' : 'old'
+  const k = who === '' ? 'narr' : who === 'me' ? `me_${life}_${g}` : who === 'fah' ? `fah_${g}`
+    : ['ton', 'nong', 'jay'].includes(who) ? `${who}_${(who === 'nong' ? a < 13 : a < 19) ? 'kid' : 'adult'}` : who
+  return VOICES[k] ? k : 'narr'
+}
+const MOOD_TH: Record<string, string> = { 'ดีใจ': 'ดีใจ ตื่นเต้น', 'เศร้า': 'เศร้า เสียงสั่นเล็กน้อย', 'ตกใจ': 'ตกใจ', 'โกรธ': 'โกรธ ไม่พอใจ', 'ปกติ': 'เป็นธรรมชาติ' }
+/** ตัดบรรทัดตามจังหวะหายใจ: หลัง "..." "?" "!" (ถ้าประโยคยาว) */
+const breath = (t: string) => (t.length > 60 ? t.replace(/(\.\.\.|[?!])\s+/g, '$1\n') : t)
+const tpl = todo.map((j) => {
+  const k = voiceKey(j.who, j.age, j.voice)
+  const v = VOICES[k]
+  const gender = k === 'narr' || /หญิง|คุณแม่|คุณยาย|ครูผู้หญิง/.test(v.style) ? 'female' : /ชาย|คุณพ่อ|หัวหน้า/.test(v.style) ? 'male' : j.voice === 'f' ? 'female' : 'male'
+  const who = j.who === '' ? 'ผู้บรรยาย' : j.who === 'me' ? `ตัวเอก${j.voice === 'f' ? 'หญิง' : 'ชาย'}` : j.whoName
+  return [j.file, j.prio, who, v.name, breath(j.text), j.who === '' ? 40 : j.age, MOOD_TH[j.mood] ?? 'เป็นธรรมชาติ', gender, j.text]
+}).sort((a, b) => Number(a[1]) - Number(b[1]))
+writeFileSync(`${out}/voice-template.csv`, '﻿' + [['file', 'prio', 'who', 'voice', 'prompt', 'age', 'mood', 'gender', 'text'], ...tpl].map((r) => r.map((x) => esc(String(x))).join(',')).join('\n'))
+console.log('voice-template:', tpl.length, 'lines')
 writeFileSync(`${out}/voice-script.csv`, '﻿' + ['ลำดับ,ไฟล์,ฉาก,อายุตัวเอก,ตัวละคร,วัยของเสียง,อารมณ์,บทพูด,หมายเหตุ',
   ...rows.map((r) => [r.prio === 1 ? 'ทำก่อน' : 'ทีหลัง', r.id + '.mp3', r.scene, r.age, r.who, r.voiceAge, r.mood, r.text, r.note].map((x) => esc(String(x))).join(','))].join('\n'))
 

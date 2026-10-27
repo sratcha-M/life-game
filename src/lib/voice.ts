@@ -8,6 +8,14 @@ const fileUrl = (name: string) => {
   return null
 }
 let audio: HTMLAudioElement | null = null
+/**
+ * บทย้อนอดีตที่มีอายุในประโยค (เช่น "ตอนเราอายุ 9") — สคริปต์พากย์สร้างจากสถานะตัวอย่างจึงได้ "undefined" / "0 ปี" แทนตัวเลข
+ * → จับคู่ด้วยตัวเลขอะไรก็ได้ (ไฟล์เสียงพูดว่า "ตอนนั้น" / "หลายปีก่อน" แทนอายุ ดู scripts/voice-script.ts)
+ */
+const AGED = Object.entries(VOICE_IDS as Record<string, string>)
+  .filter(([k]) => /undefined| 0 ปี/.test(k))
+  .map(([k, id]) => [new RegExp(`^${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/undefined/g, '-?\\d+').replace(/ 0 ปี/g, ' -?\\d+ ปี')}$`), id] as const)
+const voiceId = (raw: string) => (VOICE_IDS as Record<string, string>)[raw] ?? AGED.find(([re]) => re.test(raw))?.[1]
 
 /**
  * เสียงพากย์ด้วย Web Speech API (เสียงสังเคราะห์ภาษาไทยในเครื่องผู้เล่น)
@@ -68,7 +76,7 @@ export function speak(text: string, who: CharId | undefined, age: number, gender
   if (!enabled) return
   stopVoice()
   // มีไฟล์พากย์จริง → เล่นไฟล์ก่อน
-  const id = raw ? (VOICE_IDS as Record<string, string>)[raw] : undefined
+  const id = raw ? voiceId(raw) : undefined
   if (id) {
     const g = (who === 'fah' ? gender === 'girl' : gender === 'boy') ? 'm' : 'f'
     const url = fileUrl(`${id}_${g}`) ?? fileUrl(id) ?? fileUrl(`${id}_${g === 'm' ? 'f' : 'm'}`)
